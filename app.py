@@ -430,7 +430,61 @@ def generate_html_report(results, uploaded_filename):
     for text in results['explanation_text']:
         html_content += f'<div class="explanation-item">{text}</div>'
     
-    html_content += f"""
+    # Add morphological analysis if available
+    morphological_section = ""
+    if 'morphological_features' in results:
+        features = results['morphological_features']
+        clinical_desc = results.get('clinical_description', '')
+        analysis_method = results.get('analysis_method', 'Unknown')
+        
+        morphological_section = f"""
+        </div>
+        
+        <div class="section">
+            <h2>🔬 Morphological Analysis</h2>
+            <p><strong>Analysis Method:</strong> {analysis_method}</p>
+            
+            <h3>Quantitative Features</h3>
+            <table>
+                <tr>
+                    <th>Feature</th>
+                    <th>Value</th>
+                    <th>Clinical Significance</th>
+                </tr>
+                <tr>
+                    <td>Tissue Area Highlighted</td>
+                    <td>{features['tissue_area_percent']:.1f}%</td>
+                    <td>{'Extensive' if features['tissue_area_percent'] > 40 else 'Moderate' if features['tissue_area_percent'] > 20 else 'Focal'} model attention</td>
+                </tr>
+                <tr>
+                    <td>Dominant Stain</td>
+                    <td>{features['stain_analysis']['dominant_stain'].title()}</td>
+                    <td>{'Nuclear focus' if features['stain_analysis']['dominant_stain'] == 'hematoxylin' else 'Cytoplasmic focus' if features['stain_analysis']['dominant_stain'] == 'eosin' else 'Balanced staining'}</td>
+                </tr>
+                <tr>
+                    <td>Cellular Entropy</td>
+                    <td>{features['texture_features']['entropy']:.2f}</td>
+                    <td>{'High heterogeneity' if features['texture_features']['entropy'] > 6.0 else 'Moderate heterogeneity' if features['texture_features']['entropy'] > 4.0 else 'Low heterogeneity'}</td>
+                </tr>
+                <tr>
+                    <td>Edge Density</td>
+                    <td>{features['texture_features']['edge_density']:.3f}</td>
+                    <td>{'Sharp boundaries' if features['texture_features']['edge_density'] > 0.3 else 'Smooth boundaries'}</td>
+                </tr>
+                <tr>
+                    <td>Number of Regions</td>
+                    <td>{features['morphological_features']['num_regions']}</td>
+                    <td>{'Fragmented pattern' if features['morphological_features']['num_regions'] > 10 else 'Cohesive pattern'}</td>
+                </tr>
+            </table>
+            
+            <h3>Clinical Interpretation</h3>
+            <div class="explanation-item">
+                <strong>Automated Analysis:</strong> {clinical_desc}
+            </div>
+        """
+    
+    html_content += morphological_section + f"""
         </div>
         
         <div class="section">
@@ -657,26 +711,44 @@ def main():
                     try:
                         if shap_explainer == "simple_gradients":
                             # Simple gradient-based attribution fallback
-                            image_tensor.requires_grad_(True)
-                            output = model(image_tensor)
-                            class_score = output[0, predicted_class]
-                            class_score.backward()
-                            
-                            # Use gradients as attribution
-                            gradients = image_tensor.grad.detach().cpu().numpy()[0]
-                            shap_values = gradients * image_tensor.detach().cpu().numpy()[0]
-                            
-                            explanation_text.append("✅ Simple gradient attribution completed")
-                            st.success("Gradient-based attribution generated successfully")
+                            with torch.enable_grad():
+                                # Ensure we have a tensor for gradient computation
+                                if isinstance(image_tensor, torch.Tensor):
+                                    input_tensor = image_tensor.clone().detach().requires_grad_(True)
+                                else:
+                                    input_tensor = torch.tensor(image_tensor, dtype=torch.float32, 
+                                                              device=device, requires_grad=True)
+                                
+                                output = model(input_tensor)
+                                class_score = output[0, predicted_class]
+                                class_score.backward()
+                                
+                                # Use gradients as attribution
+                                if input_tensor.grad is not None:
+                                    gradients = input_tensor.grad.detach().cpu().numpy()[0]
+                                    input_values = input_tensor.detach().cpu().numpy()[0]
+                                    shap_values = gradients * input_values
+                                    
+                                    explanation_text.append("✅ Simple gradient attribution completed")
+                                    st.success("Gradient-based attribution generated successfully")
+                                else:
+                                    raise Exception("No gradients computed")
                         else:
                             # Use SHAP explainer with proper tensor handling
-                            input_tensor = image_tensor.cpu().numpy()
-                            shap_values_raw = shap_explainer.shap_values(input_tensor)
+                            if isinstance(image_tensor, torch.Tensor):
+                                input_array = image_tensor.detach().cpu().numpy()
+                            else:
+                                input_array = np.array(image_tensor)
+                            
+                            shap_values_raw = shap_explainer.shap_values(input_array)
                             
                             # Extract SHAP values for the predicted class
                             if isinstance(shap_values_raw, list):
                                 # Multi-class case - get values for predicted class
-                                shap_values = shap_values_raw[predicted_class][0]  # [0] for first sample
+                                if len(shap_values_raw) > predicted_class:
+                                    shap_values = shap_values_raw[predicted_class][0]  # [0] for first sample
+                                else:
+                                    shap_values = shap_values_raw[0][0]  # Fallback to first class
                             else:
                                 # Single output case
                                 shap_values = shap_values_raw[0]  # [0] for first sample
@@ -684,11 +756,49 @@ def main():
                             explanation_text.append("✅ SHAP analysis completed")
                             st.success("SHAP explanation generated successfully")
                         
-                        explanations['shap'] = shap_values
+                        # Ensure shap_values is properly formatted
+                        if shap_values is not None:
+                            # Convert to single channel if needed
+                            if len(shap_values.shape) == 3:
+                                shap_values = np.sum(np.abs(shap_values), axis=0)
+                            
+                            # Normalize to [0, 1]
+                            if shap_values.max() > shap_values.min():
+                                shap_values = (shap_values - shap_values.min()) / (shap_values.max() - shap_values.min())
+                            
+                            explanations['shap'] = shap_values
                         
                     except Exception as e:
                         st.warning(f"SHAP analysis failed: {str(e)}")
                         explanation_text.append(f"⚠️ SHAP failed: {str(e)}")
+                        # Try one more fallback - simple saliency
+                        try:
+                            st.info("Trying simple saliency as final fallback...")
+                            with torch.enable_grad():
+                                # Ensure we have a tensor for gradient computation
+                                if isinstance(image_tensor, torch.Tensor):
+                                    input_tensor = image_tensor.clone().detach().requires_grad_(True)
+                                else:
+                                    input_tensor = torch.tensor(image_tensor, dtype=torch.float32, 
+                                                              device=device, requires_grad=True)
+                                
+                                output = model(input_tensor)
+                                class_score = output[0, predicted_class]
+                                saliency = torch.autograd.grad(class_score, input_tensor)[0]
+                                
+                                # Convert to numpy and take absolute values
+                                saliency_map = torch.abs(saliency).detach().cpu().numpy()[0]
+                                saliency_map = np.sum(saliency_map, axis=0)  # Sum across channels
+                                
+                                # Normalize
+                                if saliency_map.max() > saliency_map.min():
+                                    saliency_map = (saliency_map - saliency_map.min()) / (saliency_map.max() - saliency_map.min())
+                                
+                                explanations['shap'] = saliency_map
+                                explanation_text.append("✅ Saliency map generated as fallback")
+                                st.success("Saliency-based attribution generated successfully")
+                        except Exception as e2:
+                            st.error(f"All SHAP methods failed: {str(e2)}")
                 else:
                     st.warning("SHAP not available - initialization failed")
                     explanation_text.append("⚠️ SHAP not available")
@@ -805,43 +915,48 @@ def main():
                     
                     if best_map is not None:
                         # Extract morphological features
-                        features = morphological_analyzer.analyze_activation_map(original_img, best_map)
+                        try:
+                            features = morphological_analyzer.analyze_activation_map(original_img, best_map)
+                        except Exception as morph_error:
+                            st.error(f"Morphological analysis failed: {str(morph_error)}")
+                            features = None
                         
-                        # Generate clinical description
-                        clinical_description = descriptor_generator.generate_description(
-                            features, predicted_label, confidence)
-                        
-                        # Display morphological analysis
-                        col_morph1, col_morph2 = st.columns(2)
-                        
-                        with col_morph1:
-                            st.write("**Quantitative Features:**")
-                            st.write(f"• Tissue area highlighted: {features['tissue_area_percent']:.1f}%")
-                            st.write(f"• Dominant stain: {features['stain_analysis']['dominant_stain']}")
-                            st.write(f"• Cellular entropy: {features['texture_features']['entropy']:.2f}")
-                            st.write(f"• Edge density: {features['texture_features']['edge_density']:.3f}")
-                            st.write(f"• Number of regions: {features['morphological_features']['num_regions']}")
-                        
-                        with col_morph2:
-                            st.write("**Color Analysis:**")
-                            mean_rgb = features['color_features']['mean_rgb']
-                            st.write(f"• Mean RGB: ({mean_rgb[0]:.2f}, {mean_rgb[1]:.2f}, {mean_rgb[2]:.2f})")
-                            st.write(f"• Brightness: {features['color_features']['brightness']:.2f}")
-                            st.write(f"• Contrast: {features['color_features']['contrast']:.2f}")
+                        if features is not None:
+                            # Generate clinical description
+                            clinical_description = descriptor_generator.generate_description(
+                                features, predicted_label, confidence)
                             
-                            # H&E stain analysis
-                            stain = features['stain_analysis']
-                            st.write(f"• Hematoxylin intensity: {stain['hematoxylin_intensity']:.3f}")
-                            st.write(f"• Eosin intensity: {stain['eosin_intensity']:.3f}")
-                        
-                        # Clinical interpretation
-                        st.write("**Clinical Interpretation:**")
-                        st.info(clinical_description)
-                        
-                        # Store morphological results
-                        st.session_state.explanation_results['morphological_features'] = features
-                        st.session_state.explanation_results['clinical_description'] = clinical_description
-                        st.session_state.explanation_results['analysis_method'] = best_method
+                            # Display morphological analysis
+                            col_morph1, col_morph2 = st.columns(2)
+                            
+                            with col_morph1:
+                                st.write("**Quantitative Features:**")
+                                st.write(f"• Tissue area highlighted: {features['tissue_area_percent']:.1f}%")
+                                st.write(f"• Dominant stain: {features['stain_analysis']['dominant_stain']}")
+                                st.write(f"• Cellular entropy: {features['texture_features']['entropy']:.2f}")
+                                st.write(f"• Edge density: {features['texture_features']['edge_density']:.3f}")
+                                st.write(f"• Number of regions: {features['morphological_features']['num_regions']}")
+                            
+                            with col_morph2:
+                                st.write("**Color Analysis:**")
+                                mean_rgb = features['color_features']['mean_rgb']
+                                st.write(f"• Mean RGB: ({mean_rgb[0]:.2f}, {mean_rgb[1]:.2f}, {mean_rgb[2]:.2f})")
+                                st.write(f"• Brightness: {features['color_features']['brightness']:.2f}")
+                                st.write(f"• Contrast: {features['color_features']['contrast']:.2f}")
+                                
+                                # H&E stain analysis
+                                stain = features['stain_analysis']
+                                st.write(f"• Hematoxylin intensity: {stain['hematoxylin_intensity']:.3f}")
+                                st.write(f"• Eosin intensity: {stain['eosin_intensity']:.3f}")
+                            
+                            # Clinical interpretation
+                            st.write("**Clinical Interpretation:**")
+                            st.info(clinical_description)
+                            
+                            # Store morphological results
+                            st.session_state.explanation_results['morphological_features'] = features
+                            st.session_state.explanation_results['clinical_description'] = clinical_description
+                            st.session_state.explanation_results['analysis_method'] = best_method
                         
                 except Exception as e:
                     st.warning(f"Morphological analysis failed: {str(e)}")
@@ -926,6 +1041,124 @@ def main():
                         st.error(f"Error generating report: {str(e)}")
             else:
                 st.info("💡 Run explainability analysis first to generate comprehensive report")
+    
+    # Batch processing section
+    st.markdown("---")
+    st.header("📁 Batch Processing")
+    st.markdown("Process multiple images for comprehensive explainability analysis")
+    
+    uploaded_files = st.file_uploader(
+        "Choose multiple histopathology images",
+        type=['png', 'jpg', 'jpeg', 'tiff', 'bmp'],
+        accept_multiple_files=True,
+        help="Upload multiple images for batch analysis"
+    )
+    
+    if uploaded_files:
+        st.info(f"Selected {len(uploaded_files)} images for batch processing")
+        
+        if st.button("🚀 Start Batch Analysis"):
+            try:
+                from explainability.comprehensive_explainer import ComprehensiveExplainer
+                
+                # Initialize comprehensive explainer
+                comprehensive_explainer = ComprehensiveExplainer(model, device, class_names)
+                
+                # Create progress bar
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                batch_results = []
+                
+                for i, uploaded_file in enumerate(uploaded_files):
+                    status_text.text(f"Processing {uploaded_file.name} ({i+1}/{len(uploaded_files)})")
+                    
+                    try:
+                        # Load and preprocess image
+                        image = Image.open(uploaded_file)
+                        image_tensor, image_resized = preprocess_image(image)
+                        image_tensor = image_tensor.to(device)
+                        
+                        # Prepare original image
+                        original_img = np.array(image_resized) / 255.0
+                        
+                        # Generate image ID
+                        image_id = os.path.splitext(uploaded_file.name)[0]
+                        
+                        # Generate comprehensive explanation
+                        result = comprehensive_explainer.generate_comprehensive_explanation(
+                            image_tensor, original_img, image_id, "explainability_reports")
+                        
+                        batch_results.append(result)
+                        
+                    except Exception as e:
+                        st.warning(f"Failed to process {uploaded_file.name}: {str(e)}")
+                    
+                    # Update progress
+                    progress_bar.progress((i + 1) / len(uploaded_files))
+                
+                status_text.text("Batch processing complete!")
+                
+                # Display batch summary
+                st.success(f"Successfully processed {len(batch_results)} out of {len(uploaded_files)} images")
+                
+                if batch_results:
+                    # Create batch summary
+                    st.subheader("📊 Batch Summary")
+                    
+                    # Aggregate statistics
+                    predictions = [r['metadata']['predicted_class'] for r in batch_results]
+                    confidences = [r['metadata']['confidence'] for r in batch_results]
+                    
+                    # Class distribution
+                    class_counts = {}
+                    for pred in predictions:
+                        class_counts[pred] = class_counts.get(pred, 0) + 1
+                    
+                    col_batch1, col_batch2 = st.columns(2)
+                    
+                    with col_batch1:
+                        st.write("**Class Distribution:**")
+                        for class_name, count in class_counts.items():
+                            percentage = (count / len(predictions)) * 100
+                            st.write(f"• {class_name}: {count} ({percentage:.1f}%)")
+                    
+                    with col_batch2:
+                        st.write("**Confidence Statistics:**")
+                        st.write(f"• Mean confidence: {np.mean(confidences):.1%}")
+                        st.write(f"• Min confidence: {np.min(confidences):.1%}")
+                        st.write(f"• Max confidence: {np.max(confidences):.1%}")
+                    
+                    # Download batch results
+                    if st.button("📥 Download Batch Results"):
+                        # Create batch summary JSON
+                        batch_summary = {
+                            'batch_metadata': {
+                                'total_images': len(uploaded_files),
+                                'successful_analyses': len(batch_results),
+                                'analysis_timestamp': datetime.now().isoformat()
+                            },
+                            'class_distribution': class_counts,
+                            'confidence_statistics': {
+                                'mean': float(np.mean(confidences)),
+                                'std': float(np.std(confidences)),
+                                'min': float(np.min(confidences)),
+                                'max': float(np.max(confidences))
+                            },
+                            'individual_results': [r['metadata'] for r in batch_results]
+                        }
+                        
+                        batch_json = json.dumps(batch_summary, indent=2)
+                        
+                        st.download_button(
+                            label="📥 Download Batch Summary (JSON)",
+                            data=batch_json,
+                            file_name=f"batch_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                            mime="application/json"
+                        )
+                
+            except Exception as e:
+                st.error(f"Batch processing failed: {str(e)}")
 
 
 if __name__ == "__main__":

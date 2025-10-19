@@ -36,6 +36,26 @@ class ComprehensiveExplainer:
         
         self._initialize_explainers()
     
+    def _ensure_tensor(self, data, requires_grad=False):
+        """Ensure data is a PyTorch tensor with proper device and dtype"""
+        if isinstance(data, torch.Tensor):
+            tensor = data.clone().detach()
+        else:
+            tensor = torch.tensor(data, dtype=torch.float32)
+        
+        tensor = tensor.to(self.device)
+        if requires_grad:
+            tensor.requires_grad_(True)
+        
+        return tensor
+    
+    def _ensure_numpy(self, data):
+        """Ensure data is a numpy array"""
+        if isinstance(data, torch.Tensor):
+            return data.detach().cpu().numpy()
+        else:
+            return np.array(data)
+    
     def _initialize_explainers(self):
         """Initialize all explainability methods"""
         try:
@@ -174,9 +194,15 @@ class ComprehensiveExplainer:
         # SHAP
         if self.shap_explainer is not None:
             try:
-                shap_values = self.shap_explainer.shap_values(image_tensor.cpu().numpy())
+                # Ensure proper tensor conversion
+                input_array = self._ensure_numpy(image_tensor)
+                shap_values = self.shap_explainer.shap_values(input_array)
+                
                 if isinstance(shap_values, list):
-                    shap_map = shap_values[predicted_class][0]
+                    if len(shap_values) > predicted_class:
+                        shap_map = shap_values[predicted_class][0]
+                    else:
+                        shap_map = shap_values[0][0]
                 else:
                     shap_map = shap_values[0]
                 
@@ -185,10 +211,34 @@ class ComprehensiveExplainer:
                     shap_map = np.sum(np.abs(shap_map), axis=0)
                 
                 # Normalize
-                shap_map = (shap_map - shap_map.min()) / (shap_map.max() - shap_map.min() + 1e-8)
+                if shap_map.max() > shap_map.min():
+                    shap_map = (shap_map - shap_map.min()) / (shap_map.max() - shap_map.min() + 1e-8)
+                else:
+                    shap_map = np.zeros_like(shap_map)
+                
                 explanation_maps['shap'] = shap_map
             except Exception as e:
                 print(f"SHAP failed: {e}")
+                # Try simple gradient fallback
+                try:
+                    with torch.enable_grad():
+                        # Ensure we have a tensor for gradient computation
+                        input_tensor = self._ensure_tensor(image_tensor, requires_grad=True)
+                        
+                        output = self.model(input_tensor)
+                        class_score = output[0, predicted_class]
+                        saliency = torch.autograd.grad(class_score, input_tensor)[0]
+                        
+                        saliency_map = self._ensure_numpy(torch.abs(saliency))[0]
+                        saliency_map = np.sum(saliency_map, axis=0)
+                        
+                        if saliency_map.max() > saliency_map.min():
+                            saliency_map = (saliency_map - saliency_map.min()) / (saliency_map.max() - saliency_map.min())
+                        
+                        explanation_maps['shap'] = saliency_map
+                        print("SHAP fallback: Using saliency map")
+                except Exception as e2:
+                    print(f"SHAP fallback also failed: {e2}")
         
         # LIME
         if self.lime_explainer is not None:

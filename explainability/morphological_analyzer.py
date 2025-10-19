@@ -6,6 +6,7 @@ import numpy as np
 import cv2
 from skimage import measure, feature, filters
 from skimage.color import rgb2hsv
+from scipy.ndimage import uniform_filter
 import json
 from typing import Dict, Tuple, List
 import matplotlib.pyplot as plt
@@ -16,6 +17,27 @@ class MorphologicalAnalyzer:
     
     def __init__(self, activation_threshold: float = 0.5):
         self.activation_threshold = activation_threshold
+    
+    def _ensure_uint8_format(self, image: np.ndarray) -> np.ndarray:
+        """Ensure image is in uint8 format for OpenCV operations"""
+        if image.dtype == np.uint8:
+            return image
+        elif image.dtype in [np.float32, np.float64]:
+            if image.max() <= 1.0:
+                return (image * 255).astype(np.uint8)
+            else:
+                return np.clip(image, 0, 255).astype(np.uint8)
+        else:
+            return image.astype(np.uint8)
+    
+    def _ensure_float_format(self, image: np.ndarray) -> np.ndarray:
+        """Ensure image is in float format for calculations"""
+        if image.dtype in [np.float32, np.float64]:
+            return image.astype(np.float32)
+        elif image.dtype == np.uint8:
+            return image.astype(np.float32) / 255.0
+        else:
+            return image.astype(np.float32)
         
     def analyze_activation_map(self, original_image: np.ndarray, 
                              activation_map: np.ndarray) -> Dict:
@@ -23,39 +45,85 @@ class MorphologicalAnalyzer:
         Comprehensive analysis of activation maps
         
         Args:
-            original_image: Original H&E stained image (H, W, 3)
+            original_image: Original H&E stained image (H, W, 3) in range [0, 1]
             activation_map: Normalized activation map (H, W)
             
         Returns:
             Dictionary with morphological descriptors
         """
+        # Ensure inputs are in correct format
+        original_image = self._ensure_float_format(original_image)
+        activation_map = activation_map.astype(np.float32)
+        
         # Resize activation map to match image if needed
         if activation_map.shape != original_image.shape[:2]:
             activation_map = cv2.resize(activation_map, 
-                                      (original_image.shape[1], original_image.shape[0]))
+                                      (original_image.shape[1], original_image.shape[0]),
+                                      interpolation=cv2.INTER_LINEAR)
         
         # Create binary mask for high-activation regions
         high_activation_mask = activation_map > self.activation_threshold
         
         # Calculate tissue area percentage
-        tissue_area_percent = self._calculate_tissue_area_percentage(
-            original_image, high_activation_mask)
+        try:
+            tissue_area_percent = self._calculate_tissue_area_percentage(
+                original_image, high_activation_mask)
+        except Exception as e:
+            print(f"Tissue area calculation failed: {e}")
+            tissue_area_percent = 0.0
         
         # Extract color features from high-activation zones
-        color_features = self._extract_color_features(
-            original_image, high_activation_mask)
+        try:
+            color_features = self._extract_color_features(
+                original_image, high_activation_mask)
+        except Exception as e:
+            print(f"Color feature extraction failed: {e}")
+            color_features = {
+                'mean_rgb': [0, 0, 0],
+                'std_rgb': [0, 0, 0],
+                'dominant_channel': 'none',
+                'brightness': 0.0,
+                'contrast': 0.0
+            }
         
         # Calculate texture features
-        texture_features = self._extract_texture_features(
-            original_image, high_activation_mask)
+        try:
+            texture_features = self._extract_texture_features(
+                original_image, high_activation_mask)
+        except Exception as e:
+            print(f"Texture feature extraction failed: {e}")
+            texture_features = {
+                'entropy': 0.0,
+                'local_variance': 0.0,
+                'edge_density': 0.0
+            }
         
         # Analyze H&E stain characteristics
-        stain_analysis = self._analyze_he_staining(
-            original_image, high_activation_mask)
+        try:
+            stain_analysis = self._analyze_he_staining(
+                original_image, high_activation_mask)
+        except Exception as e:
+            print(f"Stain analysis failed: {e}")
+            stain_analysis = {
+                'hematoxylin_intensity': 0.0,
+                'eosin_intensity': 0.0,
+                'stain_ratio': 0.0,
+                'dominant_stain': 'none'
+            }
         
         # Morphological characteristics
-        morphological_features = self._extract_morphological_features(
-            high_activation_mask)
+        try:
+            morphological_features = self._extract_morphological_features(
+                high_activation_mask)
+        except Exception as e:
+            print(f"Morphological feature extraction failed: {e}")
+            morphological_features = {
+                'num_regions': 0,
+                'largest_region_area': 0,
+                'region_compactness': 0.0,
+                'region_eccentricity': 0.0,
+                'total_activated_area': 0
+            }
         
         return {
             'tissue_area_percent': tissue_area_percent,
@@ -73,9 +141,12 @@ class MorphologicalAnalyzer:
     def _calculate_tissue_area_percentage(self, image: np.ndarray, 
                                         mask: np.ndarray) -> float:
         """Calculate percentage of tissue area highlighted"""
+        # Ensure image is in correct format for OpenCV
+        image_uint8 = self._ensure_uint8_format(image)
+        
         # Create tissue mask (non-white regions)
-        gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-        tissue_mask = gray < 0.9  # Assuming white background
+        gray = cv2.cvtColor(image_uint8, cv2.COLOR_RGB2GRAY)
+        tissue_mask = gray < (0.9 * 255)  # Assuming white background
         
         # Calculate percentages
         total_tissue_pixels = np.sum(tissue_mask)
@@ -124,23 +195,42 @@ class MorphologicalAnalyzer:
                 'edge_density': 0.0
             }
         
+        # Ensure image is in correct format for OpenCV
+        image_uint8 = self._ensure_uint8_format(image)
+        
         # Convert to grayscale for texture analysis
-        gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+        gray = cv2.cvtColor(image_uint8, cv2.COLOR_RGB2GRAY)
         
         # Calculate entropy in masked regions
         masked_gray = gray[mask]
-        hist, _ = np.histogram(masked_gray, bins=256, range=(0, 1))
+        hist, _ = np.histogram(masked_gray, bins=256, range=(0, 255))
         hist = hist / np.sum(hist)  # Normalize
         entropy = -np.sum(hist * np.log2(hist + 1e-10))
         
-        # Local variance using a sliding window
-        local_var = filters.rank.variance(gray, np.ones((5, 5)))
+        # Local variance using a sliding window approach
+        # Convert to float for calculations
+        gray_float = gray.astype(np.float32)
+        
+        # Calculate local mean and local mean of squares
+        local_mean = uniform_filter(gray_float, size=5)
+        local_mean_sq = uniform_filter(gray_float**2, size=5)
+        
+        # Local variance = E[X^2] - E[X]^2
+        local_var = local_mean_sq - local_mean**2
+        
+        # Extract variance values from masked regions
         masked_variance = local_var[mask]
-        mean_local_variance = np.mean(masked_variance)
+        mean_local_variance = np.mean(masked_variance) if len(masked_variance) > 0 else 0.0
         
         # Edge density using Canny edge detection
-        edges = feature.canny(gray, sigma=1.0)
-        edge_density = np.sum(edges & mask) / np.sum(mask)
+        try:
+            # Convert to float for Canny (it expects float input)
+            gray_for_canny = gray.astype(np.float32) / 255.0
+            edges = feature.canny(gray_for_canny, sigma=1.0)
+            edge_density = np.sum(edges & mask) / np.sum(mask) if np.sum(mask) > 0 else 0.0
+        except Exception as e:
+            print(f"Edge detection failed: {e}")
+            edge_density = 0.0
         
         return {
             'entropy': float(entropy),
@@ -159,9 +249,12 @@ class MorphologicalAnalyzer:
                 'dominant_stain': 'none'
             }
         
-        # Convert to HSV for better color analysis
-        hsv = rgb2hsv(image)
-        masked_pixels = image[mask]
+        # Ensure image is in float format for color analysis
+        image_float = self._ensure_float_format(image)
+        
+        # Convert to HSV for better color analysis (rgb2hsv expects float in [0,1])
+        hsv = rgb2hsv(image_float)
+        masked_pixels = image_float[mask]
         
         # Hematoxylin (blue/purple) detection
         # Blue channel dominance and low red values
