@@ -77,7 +77,8 @@ def load_model(model_path):
     """Load the trained model with caching"""
     try:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        checkpoint = torch.load(model_path, map_location=device)
+        # Fix for PyTorch 2.6 compatibility
+        checkpoint = torch.load(model_path, map_location=device, weights_only=False)
         model = checkpoint['model']
         model.to(device)
         model.eval()

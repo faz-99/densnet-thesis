@@ -84,8 +84,8 @@ img_s = 224
 # valid = "C:\\zlg\\ISIC2019\\valid"
 
 class_num = 2
-train = "d:\\thesis work\\denlsnet\\datasets\\BreaKHis 400X\\train"
-valid = "d:\\thesis work\\denlsnet\\datasets\\BreaKHis 400X\\test"
+train = "datasets/BreaKHis 400X/train"
+valid = "datasets/BreaKHis 400X/test"
 
 # class_num = 2
 # train= "C:\\zlg\\cell2\\train"
