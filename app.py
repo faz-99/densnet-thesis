@@ -775,6 +775,76 @@ def main():
                 'confidence': confidence,
                 'class_names': class_names
             }
+            
+            # Generate comprehensive morphological analysis
+            if explanations:
+                st.subheader("🔬 Morphological Analysis")
+                
+                try:
+                    from explainability.morphological_analyzer import MorphologicalAnalyzer, ClinicalDescriptorGenerator
+                    
+                    morphological_analyzer = MorphologicalAnalyzer()
+                    descriptor_generator = ClinicalDescriptorGenerator()
+                    
+                    # Analyze the best available explanation map
+                    best_map = None
+                    best_method = None
+                    
+                    if 'gradcam' in explanations:
+                        best_map = explanations['gradcam']
+                        best_method = 'Grad-CAM'
+                    elif 'gradcam_plus' in explanations:
+                        best_map = explanations['gradcam_plus']
+                        best_method = 'Grad-CAM++'
+                    elif 'shap' in explanations:
+                        best_map = explanations['shap']
+                        if len(best_map.shape) == 3:
+                            best_map = np.sum(np.abs(best_map), axis=0)
+                        best_map = (best_map - best_map.min()) / (best_map.max() - best_map.min() + 1e-8)
+                        best_method = 'SHAP'
+                    
+                    if best_map is not None:
+                        # Extract morphological features
+                        features = morphological_analyzer.analyze_activation_map(original_img, best_map)
+                        
+                        # Generate clinical description
+                        clinical_description = descriptor_generator.generate_description(
+                            features, predicted_label, confidence)
+                        
+                        # Display morphological analysis
+                        col_morph1, col_morph2 = st.columns(2)
+                        
+                        with col_morph1:
+                            st.write("**Quantitative Features:**")
+                            st.write(f"• Tissue area highlighted: {features['tissue_area_percent']:.1f}%")
+                            st.write(f"• Dominant stain: {features['stain_analysis']['dominant_stain']}")
+                            st.write(f"• Cellular entropy: {features['texture_features']['entropy']:.2f}")
+                            st.write(f"• Edge density: {features['texture_features']['edge_density']:.3f}")
+                            st.write(f"• Number of regions: {features['morphological_features']['num_regions']}")
+                        
+                        with col_morph2:
+                            st.write("**Color Analysis:**")
+                            mean_rgb = features['color_features']['mean_rgb']
+                            st.write(f"• Mean RGB: ({mean_rgb[0]:.2f}, {mean_rgb[1]:.2f}, {mean_rgb[2]:.2f})")
+                            st.write(f"• Brightness: {features['color_features']['brightness']:.2f}")
+                            st.write(f"• Contrast: {features['color_features']['contrast']:.2f}")
+                            
+                            # H&E stain analysis
+                            stain = features['stain_analysis']
+                            st.write(f"• Hematoxylin intensity: {stain['hematoxylin_intensity']:.3f}")
+                            st.write(f"• Eosin intensity: {stain['eosin_intensity']:.3f}")
+                        
+                        # Clinical interpretation
+                        st.write("**Clinical Interpretation:**")
+                        st.info(clinical_description)
+                        
+                        # Store morphological results
+                        st.session_state.explanation_results['morphological_features'] = features
+                        st.session_state.explanation_results['clinical_description'] = clinical_description
+                        st.session_state.explanation_results['analysis_method'] = best_method
+                        
+                except Exception as e:
+                    st.warning(f"Morphological analysis failed: {str(e)}")
     
     # Image comparison
     if uploaded_file is not None and show_comparison:
