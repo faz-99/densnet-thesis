@@ -439,13 +439,18 @@ class ComprehensiveEvaluator:
 - **Training Epoch:** {self.epoch}
 - **Architecture:** DenLsNet (DenseNet-201 + SE + iAFF + LSTM)
 
-## Performance Metrics
-- **Test Accuracy:** {eval_results.get('accuracy', 'N/A'):.4f}
-- **Precision:** {eval_results.get('precision', 'N/A'):.4f}
-- **Recall:** {eval_results.get('recall', 'N/A'):.4f}
-- **F1-Score:** {eval_results.get('f1_score', 'N/A'):.4f}
-- **Specificity:** {eval_results.get('specificity', 'N/A'):.4f}
-- **AUC:** {eval_results.get('auc', 'N/A'):.4f}
+## Performance Metrics"""
+        
+        # Format metrics safely
+        metrics = ['accuracy', 'precision', 'recall', 'f1_score', 'specificity', 'auc']
+        for metric in metrics:
+            value = eval_results.get(metric, 'N/A')
+            if value != 'N/A' and isinstance(value, (int, float)):
+                report += f"\n- **{metric.replace('_', ' ').title()}:** {value:.4f}"
+            else:
+                report += f"\n- **{metric.replace('_', ' ').title()}:** {value}"
+        
+        report += f"""
 
 ## Explainability Analysis Summary
 - **Total Samples Analyzed:** {len(explainability_results['sample_info'])}

@@ -81,6 +81,7 @@ def load_model(model_path):
         checkpoint = torch.load(model_path, map_location=device, weights_only=False)
         model = checkpoint['model']
         model.to(device)
+        model.float()  # Ensure model uses float32
         model.eval()
         
         # Get model info
@@ -139,8 +140,8 @@ def preprocess_image(image, target_size=(224, 224)):
     std = np.array(config.dataset_std)
     image_normalized = (image_normalized - mean) / std
     
-    # Convert to tensor (C, H, W)
-    image_tensor = torch.from_numpy(image_normalized.transpose(2, 0, 1)).unsqueeze(0)
+    # Convert to tensor (C, H, W) with correct dtype
+    image_tensor = torch.from_numpy(image_normalized.transpose(2, 0, 1)).unsqueeze(0).float()
     
     return image_tensor, image_resized
 
