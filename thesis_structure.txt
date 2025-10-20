@@ -1,0 +1,127 @@
+https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=10979932
+Clinical Implications: To bridge the gap between research and clinical practice, future efforts should move beyond improving algorithm performance alone. It is equally important to consider how AI models can be integrated into realworld pathology workflows and gain the trust of clinical users. We envision a collaborative development process, where models are refined through ongoing feedback from pathologists and evaluated in practical settings. Over time, the proposed evaluation framework could contribute to the formation of standardized guidelines for assessing AI systems in digital pathology. Such efforts are essential for ensuring that AI tools are safe, reliable, and truly beneficial in everyday clinical use.
+
+
+[normal] 
+Home  
+[normal] https://link.springer.com/article/10.1007/s11227-025-07383-8
+[normal] The Journal of Supercomputing  
+[normal] Article
+[Heading 1] DenLsNet-C: a novel model for breast cancer classification in pathology images based on DenseNet and LSTM
+[normal] Open access
+[normal] Published: 30 May 2025
+[normal] Volume 81, article number 934, (2025)
+[normal] Cite this article
+s. The key challenge is ensuring the interpretability of the model, as clinical practitioners typically rely on transparent decision-making processes. Additionally, integrating the model into existing clinical workflows would require seamless communication with other diagnostic tools and electronic health record (EHR) systems. Future research will be focused on enhancing the interpretability of the model and addressing these integration challenges to make it clinically viable.
+Given the variability in tissue pathology image processing across different laboratories, variations in staining protocols have introduced significant differences in tissue pathology images, affecting classification performance. In future, we plan to focus on exploring staining normalization techniques for diverse tissue pathology images to mitigate the impact of staining variability and enhance the model’s classification performance.
+https://pmc.ncbi.nlm.nih.gov/articles/PMC12293705/
+Diagnostics (Basel). 2025 Jul 10;15(14):1751. doi: 10.3390/diagnostics15141751
+[Heading 1] Breast Cancer Classification with Various Optimized Deep Learning Methods
+[normal] Mustafa Güler 1,*, Gamze Sart 2, Ömer Algorabi 3, Ayse Nur Adıguzel Tuylu 3, Yusuf Sait Türkan 3
+Editors: Michał Strzelecki, Adam Piórkowski, Karolina Nurzynska, Rafał Obuchowicz, Takouhie Catherine Maldjian
+[normal] Author information
+[normal] Article notes
+[normal] Copyright and License information
+[normal] PMCID: PMC12293705  PMID: 40722501
+
+
+
+The results demonstrate that DenseNet201 achieved the highest classification accuracy of 89.4%, with a precision of 88.2%, recall of 84.1%, F1 score of 86.1%, and AUC score of 95.8%. The superior performance of DenseNet201 can be attributed to its dense connectivity, which optimizes feature reuse, mitigates the vanishing gradient problem, and enhances deep feature extraction. While the ensemble model combining multiple architectures provided competitive results, it did not surpass the performance of the best individual model, suggesting that the careful selection of high-performing architectures is essential in order for ensemble learning to be effective.
+Hyperparameter tuning significantly contributed to model optimization, demonstrating that a well-calibrated balance between complexity and generalization is key in achieving superior performance. However, excessive fine-tuning led to overfitting risks, reinforcing the need for systematic optimization approaches. Moreover, transfer learning models such as ResNet and EfficientNet underperformed, likely due to their lack of specific adaptation for medical imaging tasks. This underscores the importance of fine-tuning pre-trained models on domain-specific datasets to enhance their diagnostic capabilities.
+In conclusion, this study underscores the potential of deep learning in breast cancer classification and highlights the importance of selecting the right model architectures, applying effective hyperparameter tuning, and leveraging ensemble strategies judiciously. Future research should focus on integrating multi-modal imaging data, refining ensemble learning methodologies, and expanding dataset diversity to further improve classification accuracy and real-world clinical applicability. Additionally, exploring interpretability techniques for deep learning models could enhance their adoption in clinical practice by providing transparent and explainable decision-making processes
+
+
+[normal] https://www.mdpi.com/2673-7426/5/3/46
+[Heading 2] 2. Future Research Directions
+To advance deep learning applications in breast cancer detection and management, future research should focus on the following key areas:
+Exploring advanced data augmentation techniques remains essential to address the challenge of limited medical imaging data in breast cancer detection. While traditional augmentation methods can enhance dataset diversity, they may compromise data integrity, potentially affecting model reliability. Future research should focus on developing and refining augmentation strategies, such as implicit data augmentation and novel generative approaches, to ensure both diversity and authenticity in the augmented data. Additionally, integrating these methods with deep learning models, including CNNs and transfer learning architectures, can further improve diagnostic accuracy and robustness, ultimately aiding in more reliable breast cancer detection [175,176].
+Develop deep learning models that are trained on diverse, high-quality datasets to mitigate biases and improve generalizability across various clinical settings. This will ensure that models perform consistently across different populations and healthcare systems.
+Prioritize XAI techniques (e.g., counterfactual explanations, concept activation vectors) to align model decisions with clinical reasoning. For example, integrating radiologist feedback loops during training could improve trust in CNN-based mammography systems [78].
+Design user-friendly tools and interfaces that seamlessly integrate deep learning models into existing healthcare practices. Adequate training for clinicians on AI-driven tools will be essential to ensure their adoption and practical utility.
+Focus on early breast cancer diagnosis by integrating longitudinal and multi-modal data to predict risk trajectories and enable preventive measures, thereby allowing for timely interventions.
+Foster collaboration among researchers, healthcare institutions, and data scientists with the goal of sharing datasets. Data should be collected from multiple sources to avoid biases and be properly formatted for ease of analysis, ensuring that deep learning models are trained on diverse and high-quality data.
+Develop advanced image preprocessing techniques for noise reduction, contrast enhancement, and image normalization. These techniques will improve image quality, leading to more accurate detection and classification.
+Innovate new segmentation architectures to improve the extraction of the region of interest (ROI) in medical images. Better segmentation will enhance the overall system performance and accuracy in identifying cancerous regions.
+Integrate various medical image modalities such as mammography, ultrasound, MRI, CT scans, histopathology, and thermal imaging to improve the accuracy and reliability of breast cancer detection. The synthesis of these modalities can provide a more comprehensive view of the disease.
+Incorporate non-imaging data such as cancer history, age, and other health issues alongside imaging data. This combination will allow for earlier and more accurate diagnosis, particularly for high-risk individuals.
+Conduct rigorous validation of deep learning models in real-world clinical settings, with the involvement of medical professionals. This ensures that the models are relevant, applicable, and safe for clinical use.
+Future studies should (1) develop fault-tolerant cloud architectures for reliable deployment, (2) integrate blockchain/IoT for secure health data workflows, and (3) validate AI monitoring systems in real-world clinical settings to enhance diagnostic pipelines [177,178,179].
+By addressing these key areas, future research will be able to overcome current limitations, ensuring that deep learning can achieve its full potential in transforming breast cancer diagnosis, treatment, and patient care.
+
+
+https://www.mdpi.com/2075-4418/15/5/582
+
+Future research will maximize the model for better performance in multi-class classification, especially in managing finer-grained distinctions among cancer subtypes, therefore addressing the limits of the proposed method. We intend to add more datasets with various imaging situations and tumor traits to improve generalizability. Furthermore, lightweight model designs will be investigated to lower computing needs, allowing deployment in areas with limited resources, such as rural healthcare settings. Additionally, the top priority will be integration with explainability methods, including saliency maps, to increase model transparency and support confidence in clinical decision-making. Lastly, broadening the research to include clinical validation and merging deep learning techniques with additional diagnostic modalities, such as genomic data, could further improve diagnosis accuracy and usefulness.
+
+
+https://www.sciencedirect.com/science/article/pii/S2772442525000334
+
+Upcoming research can focus on intensifying the dataset with more miscellaneous and high-resolution histopathological pictures to improve the sturdiness and reliability of the system. Additionally, incorporating clinical metadata such as patient history, genetic information, and hormonal markers could enhance the contextual understanding and diagnostic accuracy.
+
+However, the clinical adoption of these models hinges on overcoming their ’black-box’ nature. While DL achieves high accuracy, interpretability remains a barrier to trust among physicians. Future work must prioritize explainable AI (XAI) techniques—such as attention maps, Grad-CAM, and clinician feedback loops—to align model decisions with medical reasoning and ensure transparent diagnostics.
+Beyond technological innovations, this review underscores the critical role of lifestyle interventions and risk factor management in BC prevention and control. Reducing red meat consumption, maintaining a healthy body mass index (BMI), addressing high fasting plasma glucose, limiting alcohol use, increasing physical activity, and avoiding smoking and secondhand smoke exposure are essential strategies for reducing BC risk. A comprehensive understanding of genetic, hormonal, and environmental risk factors further enhances early detection and prevention efforts.
+While technological advancements have revolutionized BC detection, a holistic approach that combines cutting-edge diagnostic tools with lifestyle modifications and early detection strategies remains vital for effective BC management. This review provides valuable insights into the current state of BC detection technologies and emphasizes the need for continued research to refine these tools, improve diagnostic accuracy, and reduce the global burden of breast cancer. By integrating technological innovation with preventive healthcare, we can move closer to a future where breast cancer is detected early, treated effectively, and, ultimately, prevented.
+
+
+https://www.mdpi.com/2673-7426/5/3/46
+
+
+
+https://ieeexplore.ieee.org/abstract/document/10891589
+Gap - multi class thing 
+K. Limitations
+Although the BRNN model has shown promising results in classifying breast cancer histopathological images, there are a few major limitations in the proposed methodology. A BreaKHis dataset was initially used to assess the model’s performance. However, there is still uncertainty about the model’s ability to apply to other datasets despite the large size of this dataset. In particular, this is true for datasets with differing demographic characteristics or imaging methods. It is likely that the model could be used for broader purposes in addition to the dataset used in this study as a result of these findings. The BRNN model may also have difficulty identifying rare subtypes of breast cancer or atypical cases that are not well represented in training data. In various clinical scenarios, where rare and atypical cases may be more common, the model’s effectiveness may be limited by this limitation.
+In addition to its complexity, the BRNN model requires significant computational resources due to its multiple branches and feature fusion strategy. The use of this model may be limited in environments with limited computational resources due to its challenges. In addition, BRNN models are not easily interpretable. BRNN, like many deep learning models, may lack transparency in its decision-making process, similar to a researcher in this field. In clinical practice, clinicians may have difficulty understanding the reasoning behind specific classifications, which can negatively affect the model’s acceptance and trustworthiness.
+Furthermore, this study did not examine the potential integration of the BRNN model into existing clinical workflows. The most effective way to integrate the model into existing clinical practices is to gain a comprehensive understanding of how the model can be smoothly integrated. A practical implementation of the model in real-world scenarios is still uncertain without this.
+[Heading 3] L. Future Work
+Future research can address BRNN’s limitations and enhance its utility in several areas. First, future research should focus on validating the model with a broader set of datasets to make it more applicable to various scenarios. A model’s performance must be tested on datasets from different geographic regions and populations to ensure consistency across demographics.
+It is of utmost importance to improve the model’s ability to identify uncommon cases of breast cancer. A possible strategy would be to explore strategies for improving the model’s performance on rare subtypes and atypical presentations. To enhance training, it may be necessary to augment the dataset with more diverse cases or to use techniques such as few-shot learning. Additionally, we should optimize the model to improve its computational efficiency. As a result of improving its efficiency, the model can be implemented in a variety of settings, even those with limited resources, which will increase its practicality.
+Enhancing BRNN’s interpretability is a crucial aspect that requires dedicated attention. Clinicians must be able to trust the model’s decision-making process through methods that improve transparency. The use of methods like model visualization and explainable AI is one way to approach the problem. Further, clinical trials are crucial to assessing the model’s performance in real-world settings. These trials need to investigate methods for incorporating the BRNN model smoothly into current clinical workflows. Making the model more practical and applicable to real-world situations is a crucial step. BRNN’s ability to be applied to other types of cancer and medical imaging modalities could significantly broaden its medical impact. By exploring these additional areas, the model can be fine-tuned and its effectiveness in clinical practice can be improved, ultimately resulting in better healthcare.
+[normal] SECTION V.
+[Heading 2] Conclusion
+In this investigation, we have demonstrated the efficacy of a novel Bidirectional Recurrent Neural network (BRNN) model for the multi-classification of breast cancer histopathological images. Integrating a transfer learning backbone using the pre-trained CNN Residual Networks (ResNet), a Gated Recurrent Unit (GRU), a residual collaborative branch, and a feature fusion module forms the crux of this advanced approach. This unique combination has enabled the BRNN model to achieve a remarkable classification accuracy of 97.25% on the BreaKHis dataset, setting a new benchmark in the field and surpassing the performance of current state-of-the-art methods. The high level of accuracy ensures that the model can be a reliable tool for pathologists and oncologists, aiding in the accurate and efficient diagnosis of breast cancer. The model’s ability to consistently perform across various magnifications and its robustness in feature extraction and fusion underscore its potential for practical application. While the results are promising, the ongoing development and refinement of the model are essential. Future work should address the challenges of handling rare cancer subtypes namely adenosis, fibroadenoma, phyllodes tumor, tubular adenoma (benign), and carcinoma, mucinous carcinoma, papillary carcinoma, and lobular carcinoma (malignant) for improving the model’s performance in the presence of image artifacts.
+[normal] https://link.springer.com/article/10.1186/s44147-025-00589-w
+Conclusions
+This paper proposed a shallowed architecture as an ES-CNN architecture for the multi-classification of BHI with significant improvements in classification accuracy as well as computational efficiency. Having set a trade-off between computational demand and performance, by careful designing of magnification and patient dependencies, the proposed ES-CNN model presents a stable performance. This research accomplishes the following:
+[normal] 1.
+The ES-CNN model achieved multi-classification accuracy rates of 96%, 95%, 98%, and 96% across image magnifications of 400 × , 200 × , 100 × , and 40 × , respectively. These results indicate a high level of accuracy in classifying breast cancer histopathological images compared to existing methods.
+[normal] 2.
+The proposed ES-CNN model has minimized computational utilization and reduced training time. This has been achieved through a simplified architecture that requires fewer weights and less computation time compared to deep convolutional neural networks (DCNNs).
+[normal] 3.
+Unlike traditional DCNNs, which often require significant computational resources and extensive training times, the ES-CNN is structured to be more efficient while maintaining high classification accuracy. This efficiency is primarily due to its shallow architecture, which contrasts with deeper models like ResNet or DenseNet that have been used in similar contexts.
+[normal] 4.
+When compared with other state-of-the-art models using the BreakHis dataset, the ES-CNN shows competitive performance. For instance, some models like those utilizing ResNet or DenseNet architectures have achieved accuracies in the range of 92–99% depending on the specific task and dataset configuration. The performance of ES-CNN has shown to be comparable or superior in terms of accuracy while being more computationally efficient.
+[normal] 5.
+The manuscript highlights that the ES-CNN model employs a novel approach by integrating shallow convolutional layers that reduce complexity without sacrificing accuracy. This approach contrasts with deeper networks that often rely on transfer learning from large pre-trained models.
+The advancement of the proposed method can be considered in the following ways: first, by investigating the robustness and generalizability of the proposed model and by experimenting with other publicly available histopathological images. Second, the proposed model can be improved as lightweight for deployment on smaller handheld devices for user accessibility. Finally, various optimization methods such as weight, layer, and group normalization can be utilized to improve the convergence time and possibly improve the multi-classification accuracy of the proposed model.
+[Heading 2] Data availability
+The datasets used and/or analyzed during the current study are available via Breast Cancer Histopathological Database (BreakHis) — Laboratório Visão Robótica e Imagem (for.br) [38].
+[Heading 2] Abbreviations
+[normal] Adadelta:
+[normal] Adaptive delta
+[normal] AdaGrad:
+[normal] Adaptive gradient
+[normal] Adam:
+[normal] Adaptive moment estimation
+[normal] Adamax:
+[normal] Adam-Max
+[normal] AI:
+[normal] https://www.mdpi.com/2075-4418/15/17/2235
+
+3 sept 2025
+[Heading 2] 5. Limitations and Future Work
+Although the ViT-based model proposed in this study has shown high classification success on the BUSI breast ultrasound image dataset, some limitations should be considered. First, the dataset used consists of a single-center and relatively small sample. This may limit the generalizability of the model on images obtained using different patient groups and devices. In addition, the significant imbalance in the class distribution (dominance of the benign class) has led to the risk that the model may not adequately represent minority classes (malignant, normal). In addition, all data used in this study are limited to images with labeled and mask files. Mask information is often not available in real clinical environments; therefore, it is important to develop models that can directly classify full images without masks. In future studies, the model will be tested on multi-center and larger datasets. In addition, the ability to adapt to different ultrasound devices can be increased with transfer learning. In addition, in order to increase the explainability of the model, the decision-making process can be made more transparent with attention maps, Grad-CAM, or transformer-based visualization techniques. The development of mobile-compatible, low-latency, lightweight ViT architectures to increase clinical applicability is also among the future work.
+[Heading 2] 6. Conclusions
+In this study, a ViT-based classification model was proposed, extensively tested, and evaluated on the BUSI breast ultrasound image dataset for three classes (benign, malignant, normal). Mask-based region of interest (ROI) cropping, data augmentation, CutMix, focal loss, and ensemble strategies were used to support the model. Performance evaluations were performed with 10-fold cross-validation (stratified 10-fold CV) and measured using metrics such as accuracy, precision, sensitivity, specificity, F1-score, and AUC. In the benign class, the model exhibited high reliability performance with 96.2% precision and 86.3% recall. In the malignant class, a 92.9% recall was obtained, demonstrating that the model can detect malignant lesions with high sensitivity. In the normal class, 100% success was achieved in all metrics, and the model could clearly distinguish healthy tissues from others. According to the confusion matrix analysis, the model occasionally confused benign samples with malignant samples, but it successfully maintained its discrimination power between classes. ROC curves also supported this success, with AUC = 0.97 and AUC = 0.96 for benign and malignant classes, respectively, and AUC = 1.00 for the normal class. Additionally, the validation accuracy curve observed throughout the training process shows that the model provides stable learning, whereas the validation loss curve shows that overlearning is not encountered. With the contribution of the ensemble structure, the generalization power of the model against different variations has increased, and stable success has been achieved, especially in minority classes.
+[Heading 2] Author Contributions
+Conceptualization, T.T.Y., B.T., İ.K. and O.Y.; methodology, B.T., İ.K. and O.Y.; validation, İ.K. and O.Y.; formal analysis, B.T., and O.Y.; investigation, T.T.Y., B.T., İ.K., O.Y. and E.S.T.; resources, T.T.Y. and B.T.; data curation, T.T.Y., B.T., E.S.T. and N.A. writing—original draft preparation, T.T.Y., B.T., İ.K., O.Y., E.S.T. and N.A.; writing—review and editing, T.T.Y., B.T., İ.K., O.Y., N.A. and N.A.; visualization, B.T. and O.Y. All authors have read and agreed to the published version of the manuscript.
+[Heading 2] Funding
+[normal] This research received no external funding.
+[Heading 2] Institutional Review Board Statement
+[normal] Not applicable.
+[Heading 2] Informed Consent Statement
+[normal] Not applicable.
+[Heading 2] Data Availability Statement
+The dataset used in this study, titled “The Breast Ultrasound Images (BUSI)”, is publicly available on Kaggle [19].
+[Heading 2] Conflicts of Interest
+[normal] The authors declare no conflicts of interest.
