@@ -1,1 +1,80 @@
-/datasets
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# PyTorch
+*.pth
+*.pt
+*.ckpt
+
+# Data
+datasets/
+data/
+*.csv
+*.h5
+*.hdf5
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Model weights (too large for git)
+weight/
+weights/
+models/*.pth
+models/*.pt
+
+# Results
+results/
+experiments/
+output/
+*_results/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.webp
+*.mp4
+/thesis writing

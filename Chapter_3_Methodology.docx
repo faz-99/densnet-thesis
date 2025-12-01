@@ -1,0 +1,368 @@
+Chapter 3: Methodology
+
+This chapter presents the comprehensive methodology employed in developing DenLsNet, a multi-class medical image classification system with explainable AI capabilities. The methodology encompasses dataset preparation, model architecture design, stain normalization techniques, training procedures, and interpretability framework development.
+
+3.1 Research Framework
+
+The research methodology follows a systematic approach to address multi-class histopathology image classification with enhanced interpretability. The framework consists of four primary components: (1) dataset preparation and preprocessing, (2) model architecture development, (3) stain normalization ablation study, and (4) explainability framework implementation. Figure 3.1 illustrates the overall research framework.
+
+[INSERT FIGURE 3.1: Research Framework Overview]
+
+3.1.1 Research Questions
+
+This study addresses four key research questions:
+
+RQ1: How does multi-class extension affect model performance compared to binary classification?
+RQ2: What is the impact of stain normalization techniques on classification accuracy?
+RQ3: Which interpretability method provides the most reliable explanations for medical image classification?
+RQ4: How stable are explanations across different preprocessing methods?
+
+3.1.2 Experimental Design
+
+The experimental design employs a controlled ablation study approach to systematically evaluate the impact of different components. Three model variants are developed and compared:
+
+• DenLsNet-MC-None: Baseline multi-class model without stain normalization
+• DenLsNet-MC-Macenko: Multi-class model with Macenko stain normalization
+• DenLsNet-MC-Reinhard: Multi-class model with Reinhard stain normalization
+
+3.2 Dataset Preparation
+
+3.2.1 BreakHis Dataset
+
+The BreakHis dataset serves as the primary data source for this research. The dataset contains histopathological images of breast cancer specimens at 400X magnification, originally organized for binary classification (benign vs. malignant). Table 3.1 presents the dataset composition.
+
+Table 3.1: BreakHis Dataset Composition
+Class Type	Subtype	Training Images	Testing Images	Total
+Benign	Adenosis	444	114	558
+Benign	Fibroadenoma	253	58	311
+Benign	Phyllodes Tumor	149	39	188
+Benign	Tubular Adenoma	109	28	137
+Malignant	Ductal Carcinoma	864	210	1074
+Malignant	Lobular Carcinoma	156	42	198
+Malignant	Mucinous Carcinoma	205	33	238
+Malignant	Papillary Carcinoma	145	35	180
+Total		2325	559	2884
+
+3.2.2 Multi-Class Data Organization
+
+The original binary dataset structure is reorganized into an 8-class classification problem. The data reorganization process involves:
+
+1. Extracting subtype information from original file paths
+2. Creating new directory structures for each class
+3. Maintaining train/test split ratios
+4. Ensuring class balance considerations
+
+The reorganized dataset structure follows the format shown in Equation 3.1:
+
+Dataset_MC = {(x_i, y_i) | x_i ∈ R^(224×224×3), y_i ∈ {0,1,2,3,4,5,6,7}}	(3.1)
+
+where x_i represents the input image and y_i represents the corresponding class label.
+
+3.2.3 Data Preprocessing Pipeline
+
+The preprocessing pipeline consists of several stages as illustrated in Figure 3.2:
+
+[INSERT FIGURE 3.2: Data Preprocessing Pipeline]
+
+3.2.3.1 Image Standardization
+
+All images are resized to 224×224 pixels to maintain consistency with the DenseNet-201 input requirements. The standardization process includes:
+
+• Resize operation using bilinear interpolation
+• Pixel value normalization to [0,1] range
+• Channel-wise normalization using dataset statistics
+
+The normalization parameters are calculated as shown in Equation 3.2:
+
+μ = (0.5613, 0.5778, 0.6032), σ = (0.2114, 0.1957, 0.1590)	(3.2)
+
+3.2.3.2 Data Augmentation
+
+To enhance model generalization and address class imbalance, the following augmentation techniques are applied during training:
+
+• Random horizontal and vertical flips (probability = 0.5)
+• Random rotation (±15 degrees)
+• Random brightness and contrast adjustment (±0.2)
+• Random Gaussian noise addition (σ = 0.01)
+
+3.3 Stain Normalization Techniques
+
+Stain normalization addresses the variability in histopathological image appearance due to different staining protocols and imaging conditions. Two established methods are implemented and evaluated.
+
+3.3.1 Macenko Stain Normalization
+
+The Macenko method performs stain normalization based on optical density decomposition. The algorithm follows these steps:
+
+1. Convert RGB images to optical density (OD) space using Equation 3.3:
+
+OD = -log((I + 1)/I_0)	(3.3)
+
+where I represents the input image and I_0 is the transmitted light intensity.
+
+2. Perform singular value decomposition (SVD) on the OD matrix
+3. Extract stain vectors for hematoxylin and eosin
+4. Normalize stain concentrations to match a reference image
+
+3.3.2 Reinhard Stain Normalization
+
+The Reinhard method operates in the LAB color space and matches statistical moments between source and target images. The transformation process involves:
+
+1. Convert images from RGB to LAB color space
+2. Calculate mean and standard deviation for each channel
+3. Apply statistical matching using Equation 3.4:
+
+I_norm = ((I_source - μ_source)/σ_source) × σ_target + μ_target	(3.4)
+
+4. Convert back to RGB color space
+
+Figure 3.3 demonstrates the visual effects of different stain normalization methods.
+
+[INSERT FIGURE 3.3: Stain Normalization Comparison]
+
+3.4 Model Architecture
+
+3.4.1 DenLsNet Architecture Overview
+
+DenLsNet (DenseNet with LSTM and SE attention) extends the standard DenseNet-201 architecture with several enhancements designed for medical image classification. The architecture consists of four main components as shown in Figure 3.4:
+
+[INSERT FIGURE 3.4: DenLsNet Architecture Diagram]
+
+3.4.1.1 Base DenseNet-201
+
+The foundation utilizes DenseNet-201 pre-trained on ImageNet, providing:
+
+• Dense connectivity patterns for feature reuse
+• Gradient flow improvement through skip connections
+• Parameter efficiency through feature concatenation
+• 201 layers with 4 dense blocks
+
+3.4.1.2 Squeeze-and-Excitation (SE) Layers
+
+SE layers are integrated into each dense block to enhance channel-wise feature recalibration. The SE mechanism computes channel attention weights using Equation 3.5:
+
+s = σ(W_2 × δ(W_1 × GAP(F)))	(3.5)
+
+where F represents input features, GAP denotes global average pooling, W_1 and W_2 are learned parameters, δ is ReLU activation, and σ is sigmoid activation.
+
+3.4.1.3 Iterative Attentional Feature Fusion (iAFF)
+
+The iAFF module combines features from different dense blocks through iterative attention mechanisms. The fusion process is defined by Equation 3.6:
+
+F_fused = iAFF(F_1, F_2) = α × F_1 + (1-α) × F_2	(3.6)
+
+where α represents learned attention weights computed through multiple iterations.
+
+3.4.1.4 LSTM Classification Head
+
+The classification head employs LSTM layers to process temporal relationships in feature sequences. The LSTM formulation follows Equation 3.7:
+
+h_t = LSTM(x_t, h_{t-1})
+y = softmax(W_h × h_T + b)	(3.7)
+
+where h_t represents hidden states, x_t is input at time t, and W_h, b are learned parameters.
+
+3.4.2 Multi-Class Extension
+
+The original binary DenLsNet is extended to handle 8-class classification through:
+
+• Modification of the final classification layer from 2 to 8 outputs
+• Implementation of categorical cross-entropy loss function
+• Adjustment of class balancing strategies
+• Optimization of learning rate scheduling
+
+3.5 Training Methodology
+
+3.5.1 Training Configuration
+
+The training process employs the following configuration parameters as detailed in Table 3.2:
+
+Table 3.2: Training Configuration Parameters
+Parameter	Value	Description
+Batch Size	32	Number of samples per batch
+Learning Rate	0.003	Initial learning rate
+Optimizer	Adam	Optimization algorithm
+Weight Decay	1e-4	L2 regularization parameter
+Max Epochs	100	Maximum training epochs
+Scheduler	StepLR	Learning rate scheduler
+Step Size	30	Scheduler step size
+Gamma	0.1	Learning rate decay factor
+
+3.5.2 Loss Function
+
+For multi-class classification, categorical cross-entropy loss is employed as defined in Equation 3.8:
+
+L = -∑_{i=1}^{N} ∑_{c=1}^{C} y_{i,c} × log(ŷ_{i,c})	(3.8)
+
+where N is the number of samples, C is the number of classes, y_{i,c} is the true label, and ŷ_{i,c} is the predicted probability.
+
+3.5.3 Class Balancing Strategy
+
+To address class imbalance, weighted loss functions are implemented using inverse class frequencies as shown in Equation 3.9:
+
+w_c = N/(C × n_c)	(3.9)
+
+where w_c is the weight for class c, N is total samples, C is number of classes, and n_c is samples in class c.
+
+3.5.4 Early Stopping and Model Selection
+
+Early stopping is implemented based on validation loss with patience of 10 epochs. Model selection criteria include:
+
+• Best validation accuracy
+• Lowest validation loss
+• Highest macro F1-score
+• Best per-class performance balance
+
+3.6 Explainability Framework
+
+3.6.1 Interpretability Methods
+
+Four state-of-the-art interpretability methods are implemented and compared:
+
+3.6.1.1 Gradient-weighted Class Activation Mapping (Grad-CAM)
+
+Grad-CAM generates visual explanations by computing gradients of class scores with respect to feature maps. The importance map is calculated using Equation 3.10:
+
+L_{Grad-CAM}^c = ReLU(∑_k α_k^c A^k)	(3.10)
+
+where α_k^c represents the importance weights and A^k denotes activation maps.
+
+3.6.1.2 Grad-CAM++
+
+An improved version of Grad-CAM that provides better localization through weighted gradients. The enhanced weights are computed as shown in Equation 3.11:
+
+α_{kij}^c = (∂²y^c/∂A_{ij}^k)/(2(∂²y^c/∂A_{ij}^k) + ∑_{a,b} A_{ab}^k (∂³y^c/∂A_{ab}^k))	(3.11)
+
+3.6.1.3 SHAP (SHapley Additive exPlanations)
+
+SHAP provides pixel-level attributions based on cooperative game theory. The Shapley value for pixel i is defined by Equation 3.12:
+
+φ_i = ∑_{S⊆F\{i}} (|S|!(|F|-|S|-1)!)/(|F|!) [f(S∪{i}) - f(S)]	(3.12)
+
+where F represents all features and S is a subset of features.
+
+3.6.1.4 LIME (Local Interpretable Model-agnostic Explanations)
+
+LIME explains predictions through local linear approximations using superpixel perturbations. The explanation model is optimized according to Equation 3.13:
+
+ξ(x) = argmin_{g∈G} L(f,g,π_x) + Ω(g)	(3.13)
+
+where L is the loss function, π_x defines locality, and Ω represents model complexity.
+
+3.6.2 Quantitative Evaluation Framework
+
+3.6.2.1 Insertion and Deletion Metrics
+
+The insertion metric measures performance improvement when adding important pixels, while deletion measures performance degradation when removing important pixels. These metrics are computed as Area Under the Curve (AUC) values.
+
+3.6.2.2 Stability Analysis
+
+Stability is evaluated by measuring explanation consistency under input perturbations. The stability score is calculated using Pearson correlation coefficient between original and perturbed explanations.
+
+3.6.2.3 Localization Accuracy
+
+When ground truth regions of interest are available, localization accuracy is measured using Intersection over Union (IoU) between explanation heatmaps and annotated regions.
+
+3.7 Evaluation Methodology
+
+3.7.1 Performance Metrics
+
+Comprehensive evaluation employs multiple metrics suitable for multi-class classification:
+
+• Overall Accuracy: Proportion of correct predictions
+• Per-class Precision: True positives / (True positives + False positives)
+• Per-class Recall: True positives / (True positives + False negatives)
+• Per-class F1-Score: Harmonic mean of precision and recall
+• Macro F1-Score: Unweighted average of per-class F1-scores
+• Weighted F1-Score: Sample-weighted average of per-class F1-scores
+• Confusion Matrix: Detailed classification results
+
+3.7.2 Statistical Analysis
+
+Statistical significance testing is performed using:
+
+• McNemar's test for paired model comparisons
+• One-way ANOVA for multiple group comparisons
+• Post-hoc Tukey HSD test for pairwise comparisons
+• Confidence intervals (95%) for performance metrics
+
+3.7.3 Cross-Validation Strategy
+
+Due to the limited dataset size, stratified k-fold cross-validation (k=5) is employed to ensure robust performance estimation while maintaining class distribution in each fold.
+
+3.8 Implementation Details
+
+3.8.1 Software Framework
+
+The implementation utilizes the following software stack:
+
+• Python 3.8+ as the primary programming language
+• PyTorch 1.12+ for deep learning framework
+• Torchvision for computer vision utilities
+• Scikit-learn for evaluation metrics
+• Matplotlib and Seaborn for visualization
+• Streamlit for interactive user interface
+
+3.8.2 Hardware Configuration
+
+Training and evaluation are conducted on:
+
+• GPU: NVIDIA RTX 3080/4080 (12GB VRAM)
+• CPU: Intel i7/i9 or AMD Ryzen 7/9
+• RAM: 32GB DDR4
+• Storage: 1TB NVMe SSD
+
+3.8.3 Reproducibility Measures
+
+To ensure reproducibility:
+
+• Fixed random seeds for all stochastic processes
+• Deterministic algorithms where possible
+• Version control for all code and configurations
+• Detailed logging of hyperparameters and results
+• Docker containerization for environment consistency
+
+3.9 Ethical Considerations
+
+3.9.1 Data Privacy and Security
+
+All medical image data is handled according to:
+
+• De-identification protocols to remove patient information
+• Secure storage with encrypted file systems
+• Access control and audit logging
+• Compliance with relevant data protection regulations
+
+3.9.2 Bias and Fairness
+
+Measures to address potential bias include:
+
+• Analysis of performance across different demographic groups
+• Evaluation of explanation consistency across patient populations
+• Documentation of dataset limitations and potential biases
+• Transparent reporting of model limitations
+
+3.10 Validation Framework
+
+3.10.1 Internal Validation
+
+Internal validation employs:
+
+• Hold-out test set (20% of data)
+• Stratified sampling to maintain class distribution
+• Multiple random seeds for robust estimation
+• Performance consistency checks across runs
+
+3.10.2 Ablation Studies
+
+Systematic ablation studies evaluate:
+
+• Impact of individual architectural components
+• Effect of different stain normalization methods
+• Contribution of various training strategies
+• Sensitivity to hyperparameter choices
+
+3.11 Chapter Summary
+
+This chapter presented the comprehensive methodology for developing and evaluating DenLsNet, a multi-class medical image classification system with explainable AI capabilities. The methodology encompasses dataset preparation, model architecture design, stain normalization techniques, training procedures, and interpretability framework development. The systematic approach ensures rigorous evaluation of the proposed methods while maintaining reproducibility and addressing ethical considerations in medical AI research.
+
+The next chapter will present the experimental results obtained using this methodology, including performance comparisons, ablation study outcomes, and interpretability analysis findings.
