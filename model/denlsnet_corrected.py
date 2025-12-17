@@ -110,7 +110,8 @@ class DenLsNet(nn.Module):
         self.aff2 = iAFF(channels=1024)  # Match denseblock4 output
         
         # Bidirectional LSTM classifier head
-        self.lstm = nn.LSTM(1920, 128, batch_first=True, bidirectional=True, dropout=dropout_rate)
+        # DenseNet-121 final block outputs 1024 features, not 1920
+        self.lstm = nn.LSTM(1024, 128, batch_first=True, bidirectional=True, dropout=dropout_rate if dropout_rate > 0 else 0)
         self.pool = nn.AdaptiveAvgPool2d((1, 1))
         
         # Final classifier (256 because bidirectional LSTM outputs 128*2)
@@ -172,22 +173,42 @@ class DenLsNet(nn.Module):
         x = self.densenet.features.transition1(x)
         
         # DenseBlock2 + first fusion point
-        x = self.densenet.features.denseblock2(x)
+        x = self.densenet.features.denseblock2(x)  # Output: 512 channels
         y = self.dropout1(x)
-        y = self.conv2d_1(y)
+        y = self.conv2d_1(y)  # 512 -> 896 channels
         
         # DenseBlock3 + iAFF fusion
         x = self.densenet.features.transition2(x)
-        x = self.densenet.features.denseblock3(x)
+        x = self.densenet.features.denseblock3(x)  # Output: 1024 channels
+        
+        # Resize y to match x dimensions for fusion
+        if y.shape[2:] != x.shape[2:]:
+            y = F.adaptive_avg_pool2d(y, x.shape[2:])
+        if y.shape[1] != x.shape[1]:
+            # Use 1x1 conv to match channels
+            if not hasattr(self, 'channel_adapter1'):
+                self.channel_adapter1 = nn.Conv2d(896, 1024, 1).to(x.device)
+            y = self.channel_adapter1(y)
+        
         x = self.aff1(x, y)
         
         # Second fusion point
         y1 = self.dropout2(x)
-        y1 = self.conv2d_2(y1)
+        y1 = self.conv2d_2(y1)  # 1024 -> 1920 channels
         
         # DenseBlock4 + final iAFF fusion
         x = self.densenet.features.transition3(x)
-        x = self.densenet.features.denseblock4(x)
+        x = self.densenet.features.denseblock4(x)  # Output: 1024 channels
+        
+        # Resize y1 to match x dimensions for fusion
+        if y1.shape[2:] != x.shape[2:]:
+            y1 = F.adaptive_avg_pool2d(y1, x.shape[2:])
+        if y1.shape[1] != x.shape[1]:
+            # Use 1x1 conv to match channels
+            if not hasattr(self, 'channel_adapter2'):
+                self.channel_adapter2 = nn.Conv2d(1920, 1024, 1).to(x.device)
+            y1 = self.channel_adapter2(y1)
+        
         x = self.aff2(x, y1)
         
         # Final normalization
@@ -197,7 +218,7 @@ class DenLsNet(nn.Module):
         features = self.pool(x)  # Global average pooling
         batch_size, channels, height, width = features.size()
         
-        # Reshape for LSTM: (batch_size, seq_len=1, features=1920)
+        # Reshape for LSTM: (batch_size, seq_len=1, features=1024)
         features = features.view(batch_size, 1, channels)
         
         # Bidirectional LSTM
@@ -235,6 +256,16 @@ class DenLsNet(nn.Module):
         
         x = self.densenet.features.transition2(x)
         x = self.densenet.features.denseblock3(x)
+        
+        # Resize y to match x dimensions for fusion
+        if y.shape[2:] != x.shape[2:]:
+            y = F.adaptive_avg_pool2d(y, x.shape[2:])
+        if y.shape[1] != x.shape[1]:
+            # Use 1x1 conv to match channels
+            if not hasattr(self, 'channel_adapter1'):
+                self.channel_adapter1 = nn.Conv2d(896, 1024, 1).to(x.device)
+            y = self.channel_adapter1(y)
+        
         x = self.aff1(x, y)
         features['fusion1'] = x
         
@@ -244,6 +275,16 @@ class DenLsNet(nn.Module):
         
         x = self.densenet.features.transition3(x)
         x = self.densenet.features.denseblock4(x)
+        
+        # Resize y1 to match x dimensions for fusion
+        if y1.shape[2:] != x.shape[2:]:
+            y1 = F.adaptive_avg_pool2d(y1, x.shape[2:])
+        if y1.shape[1] != x.shape[1]:
+            # Use 1x1 conv to match channels
+            if not hasattr(self, 'channel_adapter2'):
+                self.channel_adapter2 = nn.Conv2d(1920, 1024, 1).to(x.device)
+            y1 = self.channel_adapter2(y1)
+        
         x = self.aff2(x, y1)
         features['fusion2'] = x
         
@@ -273,7 +314,7 @@ class DenLsNet(nn.Module):
         print(f"   Backbone: DenseNet-121 (with SE layers)")
         print(f"   Feature Fusion: iAFF (iterative Attentional Feature Fusion)")
         print(f"   Classifier: Bidirectional LSTM + MLP")
-        print(f"   Final Feature Dimension: 1920")
+        print(f"   Final Feature Dimension: 1024")
         
         # Test forward pass to get feature dimensions
         with torch.no_grad():
@@ -317,10 +358,10 @@ class DenLsNet(nn.Module):
         
         # Check final feature dimension
         final_features = features['final']
-        if final_features.shape[1] == 1920:
-            print(f"   ✅ Final Feature Dimension: {final_features.shape[1]} (matches paper)")
+        if final_features.shape[1] == 1024:
+            print(f"   ✅ Final Feature Dimension: {final_features.shape[1]} (DenseNet-121 standard)")
         else:
-            print(f"   ❌ Final Feature Dimension: {final_features.shape[1]} (expected 1920)")
+            print(f"   ❌ Final Feature Dimension: {final_features.shape[1]} (expected 1024 for DenseNet-121)")
         
         print("=" * 80)
 
