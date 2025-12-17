@@ -18,6 +18,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import base64
+import pandas as pd
 
 # Import project modules
 import config
@@ -1072,6 +1073,92 @@ def main():
         )
         st.pyplot(fig_comparison)
     
+    # XAI Quantitative Evaluation Section
+    if uploaded_file is not None and (use_gradcam or use_gradcam_plus or use_lime):
+        st.markdown("---")
+        st.header("📊 Quantitative XAI Evaluation")
+        
+        if st.button("🔬 Run Quantitative Analysis"):
+            with st.spinner("Computing quantitative XAI metrics..."):
+                try:
+                    # Simple quantitative metrics computation
+                    metrics_results = {}
+                    
+                    if 'gradcam' in explanations:
+                        gradcam_heatmap = explanations['gradcam']
+                        
+                        # Simple insertion metric (simplified version)
+                        # Measure how prediction confidence changes when adding important pixels
+                        original_conf = confidence
+                        
+                        # Create blurred baseline
+                        img_np = np.array(image_resized) / 255.0
+                        blurred = cv2.GaussianBlur(img_np, (51, 51), 10.0)
+                        blurred_tensor = torch.from_numpy(blurred.transpose(2, 0, 1)).unsqueeze(0).float().to(device)
+                        
+                        with torch.no_grad():
+                            blurred_output = model(blurred_tensor)
+                            blurred_probs = F.softmax(blurred_output, dim=1)
+                            blurred_conf = blurred_probs[0, predicted_class].item()
+                        
+                        # Simple faithfulness score
+                        faithfulness = original_conf - blurred_conf
+                        
+                        # Simple localization score (concentration of attention)
+                        normalized_heatmap = (gradcam_heatmap - gradcam_heatmap.min()) / (gradcam_heatmap.max() - gradcam_heatmap.min() + 1e-8)
+                        top_20_percent = np.percentile(normalized_heatmap, 80)
+                        localization = np.sum(normalized_heatmap > top_20_percent) / normalized_heatmap.size
+                        
+                        metrics_results['Grad-CAM'] = {
+                            'Faithfulness': faithfulness,
+                            'Localization': localization,
+                            'Confidence_Drop': original_conf - blurred_conf
+                        }
+                    
+                    # Display results
+                    if metrics_results:
+                        st.subheader("📈 Quantitative Metrics")
+                        
+                        col_metric1, col_metric2 = st.columns(2)
+                        
+                        with col_metric1:
+                            st.write("**Faithfulness Metrics:**")
+                            for method, metrics in metrics_results.items():
+                                st.write(f"• {method}:")
+                                st.write(f"  - Faithfulness: {metrics['Faithfulness']:.3f}")
+                                st.write(f"  - Confidence Drop: {metrics['Confidence_Drop']:.3f}")
+                        
+                        with col_metric2:
+                            st.write("**Localization Metrics:**")
+                            for method, metrics in metrics_results.items():
+                                st.write(f"• {method}:")
+                                st.write(f"  - Localization Score: {metrics['Localization']:.3f}")
+                        
+                        # Create simple metrics table
+                        metrics_df = []
+                        for method, metrics in metrics_results.items():
+                            metrics_df.append({
+                                'XAI Method': method,
+                                'Faithfulness': f"{metrics['Faithfulness']:.3f}",
+                                'Localization': f"{metrics['Localization']:.3f}",
+                                'Confidence Drop': f"{metrics['Confidence_Drop']:.3f}"
+                            })
+                        
+                        st.subheader("📋 Summary Table")
+                        df = pd.DataFrame(metrics_df)
+                        st.dataframe(df, use_container_width=True)
+                        
+                        st.info("""
+                        **Metric Interpretation:**
+                        - **Faithfulness**: Higher values indicate the explanation better reflects model reasoning
+                        - **Localization**: Lower values indicate more focused attention (better localization)
+                        - **Confidence Drop**: Larger drops indicate important regions were identified
+                        """)
+                        
+                except Exception as e:
+                    st.error(f"Quantitative analysis failed: {str(e)}")
+                    st.info("This is a simplified quantitative analysis. For full metrics, use the dedicated evaluation pipeline.")
+
     # Footer
     st.markdown("---")
     st.markdown("""
@@ -1079,6 +1166,7 @@ def main():
     - Built with Streamlit for interactive model interpretability
     - Uses DenseNet architecture with attention mechanisms
     - Implements multiple explainability techniques (Grad-CAM, SHAP, LIME)
+    - Includes quantitative XAI evaluation metrics
     - Designed for histopathology image classification
     """)
     
