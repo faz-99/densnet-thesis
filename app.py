@@ -22,7 +22,12 @@ import base64
 import config
 from model.model import class_model
 from explainability.grad_cam import GradCAM, GradCAMPlusPlus, overlay_heatmap
-from explainability.shap_explainer import SHAPExplainer
+try:
+    from explainability.shap_explainer import SHAPExplainer
+    SHAP_AVAILABLE = True
+except ImportError:
+    SHAPExplainer = None
+    SHAP_AVAILABLE = False
 from explainability.lime_explainer import LIMEExplainer
 from evaluation.metrics import ModelEvaluator
 
@@ -129,6 +134,8 @@ def initialize_explainers(_model, _device):
         
         # Initialize SHAP with proper PyTorch model wrapper
         try:
+            if not SHAP_AVAILABLE:
+                raise ImportError("SHAP not available")
             import shap
             
             # Create a proper PyTorch model wrapper for SHAP
@@ -571,7 +578,9 @@ def main():
     st.sidebar.header("🧠 Explainability Options")
     use_gradcam = st.sidebar.checkbox("Grad-CAM", value=True)
     use_gradcam_plus = st.sidebar.checkbox("Grad-CAM++", value=True)
-    use_shap = st.sidebar.checkbox("SHAP", value=False, help="Computationally intensive")
+    use_shap = st.sidebar.checkbox("SHAP", value=False, 
+                                   help="Computationally intensive" + ("" if SHAP_AVAILABLE else " (Not installed)"),
+                                   disabled=not SHAP_AVAILABLE)
     use_lime = st.sidebar.checkbox("LIME", value=False, help="Computationally intensive")
     show_comparison = st.sidebar.checkbox("Show Original vs Normalized", value=True)
     
@@ -707,7 +716,10 @@ def main():
             # SHAP
             shap_values = None
             if use_shap:
-                if shap_explainer is not None:
+                if not SHAP_AVAILABLE:
+                    st.warning("SHAP is not available - install with: pip install shap")
+                    explanation_text.append("⚠️ SHAP not available - installation required")
+                elif shap_explainer is not None:
                     try:
                         if shap_explainer == "simple_gradients":
                             # Simple gradient-based attribution fallback

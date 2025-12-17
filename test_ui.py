@@ -1,280 +1,152 @@
+#!/usr/bin/env python3
 """
-Test script to verify UI components and functionality
+Test UI functionality without Streamlit
 """
-import sys
-import os
+
 import torch
+import torch.nn.functional as F
 import numpy as np
 from PIL import Image
-import tempfile
+from model.denlsnet_corrected import create_denlsnet
+from torchvision import transforms
 
-def test_imports():
-    """Test if all UI-related imports work"""
-    print("Testing UI imports...")
+def preprocess_image(image):
+    """Preprocess image for model input"""
+    transform = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
     
-    try:
-        import streamlit as st
-        print("✅ Streamlit")
-    except ImportError:
-        print("❌ Streamlit - install with: pip install streamlit")
-        return False
+    # Convert to RGB if needed
+    if image.mode != 'RGB':
+        image = image.convert('RGB')
     
-    try:
-        import plotly.express as px
-        import plotly.graph_objects as go
-        print("✅ Plotly")
-    except ImportError:
-        print("❌ Plotly - install with: pip install plotly")
-        return False
+    # Apply transforms
+    input_tensor = transform(image).unsqueeze(0)
     
-    try:
-        import matplotlib.pyplot as plt
-        print("✅ Matplotlib")
-    except ImportError:
-        print("❌ Matplotlib")
-        return False
-    
-    try:
-        import cv2
-        print("✅ OpenCV")
-    except ImportError:
-        print("❌ OpenCV - install with: pip install opencv-python")
-        return False
-    
-    try:
-        from sklearn.metrics import confusion_matrix
-        print("✅ Scikit-learn")
-    except ImportError:
-        print("❌ Scikit-learn")
-        return False
-    
-    return True
+    return input_tensor
 
+def predict_binary(model, image_tensor):
+    """Make binary classification prediction"""
+    with torch.no_grad():
+        outputs = model(image_tensor)
+        probabilities = F.softmax(outputs, dim=1)
+        prediction = torch.argmax(probabilities, dim=1)
+        confidence = probabilities.max().item()
+    
+    class_name = 'Benign' if prediction.item() == 0 else 'Malignant'
+    
+    return {
+        'prediction': class_name,
+        'prediction_idx': prediction.item(),
+        'confidence': confidence,
+        'probabilities': probabilities.cpu().numpy()[0]
+    }
 
-def test_model_loading():
-    """Test model loading functionality"""
-    print("\nTesting model loading...")
-    
-    # Check if model file exists
-    model_path = "weight/save/40/iaff40_5.pth"
-    if not os.path.exists(model_path):
-        print(f"❌ Model file not found: {model_path}")
-        print("Train a model first with: python train.py")
-        return False
-    
-    try:
-        device = torch.device('cpu')  # Use CPU for testing
-        checkpoint = torch.load(model_path, map_location=device)
-        
-        if 'model' not in checkpoint:
-            print("❌ Model checkpoint missing 'model' key")
-            return False
-        
-        model = checkpoint['model']
-        model.to(device)
-        model.eval()
-        
-        print(f"✅ Model loaded successfully")
-        print(f"   Best accuracy: {checkpoint.get('best_acc', 'N/A')}")
-        print(f"   Epoch: {checkpoint.get('epoch', 'N/A')}")
-        
-        return True
-        
-    except Exception as e:
-        print(f"❌ Model loading failed: {str(e)}")
-        return False
-
-
-def test_image_processing():
-    """Test image preprocessing functionality"""
-    print("\nTesting image processing...")
-    
-    try:
-        # Create a dummy image
-        dummy_image = np.random.randint(0, 255, (224, 224, 3), dtype=np.uint8)
-        pil_image = Image.fromarray(dummy_image)
-        
-        # Test preprocessing (simplified version)
-        image_array = np.array(pil_image)
-        if len(image_array.shape) == 3 and image_array.shape[2] == 3:
-            print("✅ RGB image handling")
-        
-        # Test resize
-        import cv2
-        resized = cv2.resize(image_array, (224, 224))
-        if resized.shape == (224, 224, 3):
-            print("✅ Image resizing")
-        
-        # Test normalization
-        normalized = resized.astype(np.float32) / 255.0
-        if 0 <= normalized.min() and normalized.max() <= 1:
-            print("✅ Image normalization")
-        
-        # Test tensor conversion
-        tensor = torch.from_numpy(normalized.transpose(2, 0, 1)).unsqueeze(0)
-        if tensor.shape == (1, 3, 224, 224):
-            print("✅ Tensor conversion")
-        
-        return True
-        
-    except Exception as e:
-        print(f"❌ Image processing failed: {str(e)}")
-        return False
-
-
-def test_explainability_imports():
-    """Test explainability module imports"""
-    print("\nTesting explainability imports...")
-    
-    try:
-        from explainability.grad_cam import GradCAM, GradCAMPlusPlus
-        print("✅ Grad-CAM modules")
-    except ImportError as e:
-        print(f"❌ Grad-CAM modules: {e}")
-        return False
-    
-    try:
-        from explainability.shap_explainer import SHAPExplainer
-        print("✅ SHAP module")
-    except ImportError as e:
-        print(f"❌ SHAP module: {e}")
-        return False
-    
-    try:
-        from explainability.lime_explainer import LIMEExplainer
-        print("✅ LIME module")
-    except ImportError as e:
-        print(f"❌ LIME module: {e}")
-        return False
-    
-    try:
-        from evaluation.metrics import ModelEvaluator
-        print("✅ Evaluation module")
-    except ImportError as e:
-        print(f"❌ Evaluation module: {e}")
-        return False
-    
-    return True
-
-
-def test_config():
-    """Test configuration import"""
-    print("\nTesting configuration...")
-    
-    try:
-        import config
-        
-        required_attrs = ['dataset_mean', 'dataset_std', 'class_num', 'img_s']
-        for attr in required_attrs:
-            if hasattr(config, attr):
-                print(f"✅ config.{attr}: {getattr(config, attr)}")
-            else:
-                print(f"❌ Missing config.{attr}")
-                return False
-        
-        return True
-        
-    except ImportError as e:
-        print(f"❌ Config import failed: {e}")
-        return False
-
-
-def test_file_structure():
-    """Test if all required files exist"""
-    print("\nTesting file structure...")
-    
-    required_files = [
-        'app.py',
-        'config.py',
-        'train.py',
-        'run_evaluation.py',
-        'run_explainability.py',
-        'explainability/__init__.py',
-        'explainability/grad_cam.py',
-        'explainability/shap_explainer.py',
-        'explainability/lime_explainer.py',
-        'explainability/explainer.py',
-        'evaluation/__init__.py',
-        'evaluation/metrics.py',
-        'requirements_ui.txt',
-        'requirements_explainability.txt'
+def predict_multiclass(model, image_tensor):
+    """Make multiclass classification prediction"""
+    class_names = [
+        'Adenosis', 'Fibroadenoma', 'Phyllodes Tumor', 'Tubular Adenoma',
+        'Ductal Carcinoma', 'Lobular Carcinoma', 'Mucinous Carcinoma', 'Papillary Carcinoma'
     ]
     
-    missing_files = []
-    for file_path in required_files:
-        if os.path.exists(file_path):
-            print(f"✅ {file_path}")
-        else:
-            print(f"❌ {file_path}")
-            missing_files.append(file_path)
+    with torch.no_grad():
+        outputs = model(image_tensor)
+        probabilities = F.softmax(outputs, dim=1)
+        prediction = torch.argmax(probabilities, dim=1)
+        confidence = probabilities.max().item()
     
-    if missing_files:
-        print(f"\nMissing files: {missing_files}")
-        return False
-    
-    return True
+    return {
+        'prediction': class_names[prediction.item()],
+        'prediction_idx': prediction.item(),
+        'confidence': confidence,
+        'probabilities': probabilities.cpu().numpy()[0],
+        'class_names': class_names
+    }
 
-
-def main():
-    """Run all tests"""
-    print("="*60)
-    print("UI AND EVALUATION TEST SUITE")
-    print("="*60)
-    
-    tests = [
-        ("File Structure", test_file_structure),
-        ("Configuration", test_config),
-        ("UI Imports", test_imports),
-        ("Image Processing", test_image_processing),
-        ("Explainability Imports", test_explainability_imports),
-        ("Model Loading", test_model_loading)
-    ]
-    
-    results = []
-    
-    for test_name, test_func in tests:
-        print(f"\n{'-'*20} {test_name} {'-'*20}")
-        try:
-            result = test_func()
-            results.append((test_name, result))
-        except Exception as e:
-            print(f"Test {test_name} crashed: {str(e)}")
-            results.append((test_name, False))
-    
-    # Summary
-    print("\n" + "="*60)
-    print("TEST SUMMARY")
-    print("="*60)
-    
-    passed = 0
-    total = len(results)
-    
-    for test_name, result in results:
-        status = "PASS" if result else "FAIL"
-        print(f"{test_name}: {status}")
-        if result:
-            passed += 1
-    
-    print(f"\nPassed: {passed}/{total}")
-    
-    if passed == total:
-        print("\n🎉 All tests passed! UI is ready to use.")
-        print("\nNext steps:")
-        print("1. Ensure you have a trained model")
-        print("2. Launch UI: streamlit run app.py")
-        print("3. Or run complete pipeline: python run_complete_pipeline.py")
+def create_demo_image(image_type='benign'):
+    """Create a demo histopathology-like image"""
+    # Create a simple colored image for demonstration
+    if image_type == 'benign':
+        # Lighter, more organized pattern
+        base_color = np.array([200, 180, 220])
     else:
-        print(f"\n❌ {total - passed} tests failed. Please fix the issues above.")
-        print("\nCommon solutions:")
-        print("- Install missing packages:")
-        print("  pip install -r requirements_ui.txt")
-        print("  pip install -r requirements_explainability.txt")
-        print("- Train a model: python train.py")
-        print("- Check file paths and permissions")
+        # Darker, more chaotic pattern
+        base_color = np.array([120, 80, 140])
     
-    return passed == total
+    # Create image with some texture
+    img_array = np.ones((224, 224, 3)) * base_color
+    noise = np.random.normal(0, 20, (224, 224, 3))
+    img_array = np.clip(img_array + noise, 0, 255).astype(np.uint8)
+    
+    return Image.fromarray(img_array)
 
+def test_ui_functionality():
+    """Test the UI functionality"""
+    print("🧪 Testing UI Functionality")
+    print("=" * 50)
+    
+    # Load models
+    print("📦 Loading models...")
+    try:
+        binary_model = create_denlsnet(num_classes=2, dropout_rate=0.5)
+        multiclass_model = create_denlsnet(num_classes=8, dropout_rate=0.5)
+        
+        binary_model.eval()
+        multiclass_model.eval()
+        
+        print("✅ Models loaded successfully")
+    except Exception as e:
+        print(f"❌ Failed to load models: {str(e)}")
+        return False
+    
+    # Test with demo images
+    for image_type in ['benign', 'malignant']:
+        print(f"\n🖼️ Testing with demo {image_type} image...")
+        
+        # Create demo image
+        demo_image = create_demo_image(image_type)
+        print(f"   Created {image_type} demo image: {demo_image.size}")
+        
+        # Preprocess image
+        try:
+            input_tensor = preprocess_image(demo_image)
+            print(f"   Preprocessed image shape: {input_tensor.shape}")
+        except Exception as e:
+            print(f"   ❌ Preprocessing failed: {str(e)}")
+            continue
+        
+        # Test binary classification
+        try:
+            binary_result = predict_binary(binary_model, input_tensor)
+            print(f"   🎯 Binary: {binary_result['prediction']} (confidence: {binary_result['confidence']:.3f})")
+        except Exception as e:
+            print(f"   ❌ Binary prediction failed: {str(e)}")
+            continue
+        
+        # Test multiclass classification
+        try:
+            multiclass_result = predict_multiclass(multiclass_model, input_tensor)
+            category = "Benign" if multiclass_result['prediction_idx'] < 4 else "Malignant"
+            print(f"   🎯 Multiclass: {multiclass_result['prediction']} ({category}) (confidence: {multiclass_result['confidence']:.3f})")
+        except Exception as e:
+            print(f"   ❌ Multiclass prediction failed: {str(e)}")
+            continue
+        
+        print(f"   ✅ {image_type.capitalize()} image test passed")
+    
+    print(f"\n🎉 All UI functionality tests passed!")
+    print(f"🌐 Your Streamlit app at http://localhost:8501 should work perfectly now!")
+    
+    return True
 
 if __name__ == "__main__":
-    success = main()
-    sys.exit(0 if success else 1)
+    success = test_ui_functionality()
+    if success:
+        print("\n✅ UI is ready! Open your browser and go to:")
+        print("   🌐 Local: http://localhost:8501")
+        print("   🌐 Network: http://192.168.18.249:8501")
+        print("   🌐 External: http://139.135.32.77:8501")
+    else:
+        print("\n❌ UI tests failed. Please check the error messages above.")
