@@ -31,6 +31,13 @@ except ImportError:
     SHAPExplainer = None
     SHAP_AVAILABLE = False
 from explainability.lime_explainer import LIMEExplainer
+from explainability.integrated_gradients import IntegratedGradients
+from explainability.textual_explainer import HistopathologyTextualExplainer
+try:
+    from explainability.lrp import LRPDenseNet
+    LRP_AVAILABLE = True
+except ImportError:
+    LRP_AVAILABLE = False
 from evaluation.metrics import ModelEvaluator
 
 
@@ -142,8 +149,24 @@ def initialize_explainers(_model, _device):
         shap_explainer = None
         lime_explainer = None
         
-        # Initialize Grad-CAM - try different layer names for different model types
-        gradcam = None
+        # Initialize Integrated Gradients (Primary Method)
+        integrated_gradients = None
+        try:
+            integrated_gradients = IntegratedGradients(_model, _device)
+            st.success("✅ Integrated Gradients initialized (Primary Method)")
+        except Exception as e:
+            st.error(f"❌ Failed to initialize Integrated Gradients: {str(e)}")
+        
+        # Initialize Textual Explainer
+        textual_explainer = None
+        try:
+            class_names = ['Benign', 'Malignant']  # Update based on your classes
+            textual_explainer = HistopathologyTextualExplainer(class_names)
+            st.success("✅ Textual Explainer initialized")
+        except Exception as e:
+            st.warning(f"⚠️ Textual Explainer initialization failed: {str(e)}")
+        
+        # Initialize Grad-CAM++ (Baseline for comparison)
         gradcam_plus = None
         
         # Get available layer names for debugging
@@ -161,28 +184,33 @@ def initialize_explainers(_model, _device):
         for layer_name in target_layers_to_try:
             if layer_name in layer_names:
                 try:
-                    gradcam = GradCAM(_model, target_layer_name=layer_name)
-                    st.success(f"✅ Grad-CAM initialized with layer: {layer_name}")
-                    break
-                except Exception as e:
-                    continue
-        
-        if gradcam is None:
-            st.warning("⚠️ Could not initialize Grad-CAM - no suitable layer found")
-            st.info(f"Available layers: {layer_names[:10]}...")  # Show first 10 layers
-        
-        # Try same for Grad-CAM++
-        for layer_name in target_layers_to_try:
-            if layer_name in layer_names:
-                try:
                     gradcam_plus = GradCAMPlusPlus(_model, target_layer_name=layer_name)
-                    st.success(f"✅ Grad-CAM++ initialized with layer: {layer_name}")
+                    st.success(f"✅ Grad-CAM++ initialized with layer: {layer_name} (Baseline)")
                     break
                 except Exception as e:
                     continue
         
         if gradcam_plus is None:
-            st.warning("⚠️ Could not initialize Grad-CAM++ - no suitable layer found")
+            st.warning("⚠️ Could not initialize Grad-CAM++ baseline")
+        
+        # Initialize LRP (Optional)
+        lrp_explainer = None
+        if LRP_AVAILABLE:
+            try:
+                lrp_explainer = LRPDenseNet(_model, _device)
+                st.success("✅ LRP initialized (Optional)")
+            except Exception as e:
+                st.warning(f"⚠️ LRP initialization failed: {str(e)}")
+        
+        # Initialize standard Grad-CAM for compatibility
+        gradcam = None
+        for layer_name in target_layers_to_try:
+            if layer_name in layer_names:
+                try:
+                    gradcam = GradCAM(_model, target_layer_name=layer_name)
+                    break
+                except Exception as e:
+                    continue
         
         # Initialize SHAP with proper PyTorch model wrapper
         try:
@@ -239,7 +267,15 @@ def initialize_explainers(_model, _device):
             st.warning(f"Could not initialize LIME: {str(e)}")
             lime_explainer = None
         
-        return gradcam, gradcam_plus, shap_explainer, lime_explainer
+        return {
+            'integrated_gradients': integrated_gradients,
+            'gradcam': gradcam,
+            'gradcam_plus': gradcam_plus,
+            'lrp_explainer': lrp_explainer,
+            'shap_explainer': shap_explainer,
+            'lime_explainer': lime_explainer,
+            'textual_explainer': textual_explainer
+        }
     except Exception as e:
         st.error(f"Error initializing explainers: {str(e)}")
         return None, None, None, None
@@ -656,19 +692,42 @@ def main():
     st.sidebar.info(f"**Device:** {device}")
     
     # Explainability options
-    st.sidebar.header("🧠 Explainability Options")
-    use_gradcam = st.sidebar.checkbox("Grad-CAM", value=True)
-    use_gradcam_plus = st.sidebar.checkbox("Grad-CAM++", value=True)
+    st.sidebar.header("🧠 Explainability Methods")
+    st.sidebar.markdown("**Primary Method:**")
+    use_integrated_gradients = st.sidebar.checkbox("Integrated Gradients", value=True, 
+                                                   help="Primary explainability method")
+    
+    st.sidebar.markdown("**Baseline Methods:**")
+    use_gradcam_plus = st.sidebar.checkbox("Grad-CAM++", value=True, 
+                                          help="Baseline for comparison")
+    use_gradcam = st.sidebar.checkbox("Grad-CAM", value=False, 
+                                     help="Standard Grad-CAM")
+    
+    st.sidebar.markdown("**Optional Methods:**")
+    use_lrp = st.sidebar.checkbox("LRP", value=False, 
+                                 help="Layer-wise Relevance Propagation" + ("" if LRP_AVAILABLE else " (Not available)"),
+                                 disabled=not LRP_AVAILABLE)
     use_shap = st.sidebar.checkbox("SHAP", value=False, 
                                    help="Computationally intensive" + ("" if SHAP_AVAILABLE else " (Not installed)"),
                                    disabled=not SHAP_AVAILABLE)
     use_lime = st.sidebar.checkbox("LIME", value=False, help="Computationally intensive")
+    
+    st.sidebar.markdown("**Analysis Options:**")
+    generate_textual_report = st.sidebar.checkbox("Generate Textual Report", value=True,
+                                                  help="Human-readable pathology explanation")
     show_comparison = st.sidebar.checkbox("Show Original vs Normalized", value=True)
     
     # Initialize explainers
-    if use_gradcam or use_gradcam_plus or use_shap or use_lime:
+    if use_integrated_gradients or use_gradcam or use_gradcam_plus or use_lrp or use_shap or use_lime:
         with st.spinner("Initializing explainability tools..."):
-            gradcam, gradcam_plus, shap_explainer, lime_explainer = initialize_explainers(model, device)
+            explainer_results = initialize_explainers(model, device)
+            integrated_gradients = explainer_results.get('integrated_gradients')
+            gradcam = explainer_results.get('gradcam')
+            gradcam_plus = explainer_results.get('gradcam_plus')
+            lrp_explainer = explainer_results.get('lrp_explainer')
+            shap_explainer = explainer_results.get('shap_explainer')
+            lime_explainer = explainer_results.get('lime_explainer')
+            textual_explainer = explainer_results.get('textual_explainer')
             
             # Debug: Show available layers
             if st.sidebar.checkbox("🔧 Debug: Show Model Layers", value=False):
@@ -760,7 +819,7 @@ def main():
                 st.plotly_chart(fig_prob, use_container_width=True)
     
     # Explainability section
-    if uploaded_file is not None and (use_gradcam or use_gradcam_plus or use_shap or use_lime):
+    if uploaded_file is not None and (use_integrated_gradients or use_gradcam or use_gradcam_plus or use_lrp or use_shap or use_lime):
         st.header("🧠 Model Interpretability")
         
         with st.spinner("Generating explanations..."):
@@ -769,6 +828,63 @@ def main():
             
             explanations = {}
             explanation_text = []
+            textual_reports = []
+            
+            # Integrated Gradients (Primary Method)
+            if use_integrated_gradients:
+                if integrated_gradients is not None:
+                    try:
+                        ig_attribution, ig_metadata = integrated_gradients.generate_integrated_gradients(
+                            image_tensor, predicted_class, baseline_method='blur', num_steps=50
+                        )
+                        explanations['integrated_gradients'] = ig_attribution
+                        explanation_text.append("✅ Integrated Gradients analysis completed (Primary Method)")
+                        st.success("Integrated Gradients attribution generated successfully")
+                        
+                        # Generate histopathology analysis
+                        if textual_explainer is not None:
+                            try:
+                                histo_analysis = integrated_gradients.analyze_histopathology_features(
+                                    ig_attribution, original_img
+                                )
+                                
+                                prediction_info = {
+                                    'predicted_class': predicted_class,
+                                    'confidence': confidence,
+                                    'class_names': class_names
+                                }
+                                
+                                textual_report = integrated_gradients.generate_textual_explanation(
+                                    histo_analysis, prediction_info
+                                )
+                                textual_reports.append(('Integrated Gradients', textual_report))
+                                
+                            except Exception as e:
+                                st.warning(f"Textual analysis failed: {str(e)}")
+                        
+                    except Exception as e:
+                        st.error(f"Integrated Gradients failed: {str(e)}")
+                        explanation_text.append(f"❌ Integrated Gradients failed: {str(e)}")
+                else:
+                    st.warning("Integrated Gradients not available - initialization failed")
+                    explanation_text.append("⚠️ Integrated Gradients not available")
+            
+            # LRP (Optional Method)
+            if use_lrp:
+                if lrp_explainer is not None:
+                    try:
+                        lrp_relevance, lrp_metadata = lrp_explainer.generate_lrp_explanation(
+                            image_tensor, predicted_class
+                        )
+                        explanations['lrp'] = lrp_relevance
+                        explanation_text.append("✅ LRP analysis completed (Optional Method)")
+                        st.success("LRP relevance map generated successfully")
+                    except Exception as e:
+                        st.error(f"LRP failed: {str(e)}")
+                        explanation_text.append(f"❌ LRP failed: {str(e)}")
+                else:
+                    st.warning("LRP not available - initialization failed")
+                    explanation_text.append("⚠️ LRP not available")
             
             # Grad-CAM
             if use_gradcam:
