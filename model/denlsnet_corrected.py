@@ -100,13 +100,14 @@ class DenLsNet(nn.Module):
         self.densenet = self._create_densenet121_with_se()
         
         # Feature fusion layers to achieve 1920 final dimension
+        # DenseNet-121 feature dimensions: denseblock2=512, denseblock3=1024, denseblock4=1024
         self.dropout1 = nn.Dropout(p=dropout_rate)
-        self.conv2d_1 = nn.Conv2d(in_channels=256, out_channels=896, kernel_size=2, stride=2)  # After denseblock2
-        self.aff1 = iAFF(channels=896)
+        self.conv2d_1 = nn.Conv2d(in_channels=512, out_channels=896, kernel_size=2, stride=2)  # After denseblock2
+        self.aff1 = iAFF(channels=1024)  # Match denseblock3 output
         
         self.dropout2 = nn.Dropout(p=dropout_rate)
-        self.conv2d_2 = nn.Conv2d(in_channels=896, out_channels=1920, kernel_size=2, stride=2)  # After denseblock3
-        self.aff2 = iAFF(channels=1920)
+        self.conv2d_2 = nn.Conv2d(in_channels=1024, out_channels=1920, kernel_size=2, stride=2)  # After denseblock3
+        self.aff2 = iAFF(channels=1024)  # Match denseblock4 output
         
         # Bidirectional LSTM classifier head
         self.lstm = nn.LSTM(1920, 128, batch_first=True, bidirectional=True, dropout=dropout_rate)
