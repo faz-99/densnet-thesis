@@ -1018,18 +1018,64 @@ def main():
                     st.warning("SHAP not available - initialization failed")
                     explanation_text.append("⚠️ SHAP not available")
             
-            # Create main visualization
-            if 'gradcam' in explanations or 'gradcam_plus' in explanations:
-                gradcam_hm = explanations.get('gradcam', np.zeros((224, 224)))
-                gradcam_plus_hm = explanations.get('gradcam_plus', np.zeros((224, 224)))
-                
-                fig_explain = create_explainability_plot(
-                    original_img,
-                    gradcam_hm,
-                    gradcam_plus_hm,
-                    shap_values
-                )
-                st.pyplot(fig_explain)
+            # Create comprehensive visualization
+            if explanations:
+                # Create enhanced visualization with all methods
+                num_methods = len(explanations)
+                if num_methods > 0:
+                    # Calculate grid size
+                    cols = min(3, num_methods + 1)  # +1 for original image
+                    rows = (num_methods + 1 + cols - 1) // cols
+                    
+                    fig, axes = plt.subplots(rows, cols, figsize=(5*cols, 5*rows))
+                    if rows == 1:
+                        axes = axes.reshape(1, -1) if num_methods > 1 else [axes]
+                    
+                    # Original image
+                    axes[0, 0].imshow(original_img)
+                    axes[0, 0].set_title('Original Image', fontweight='bold', fontsize=12)
+                    axes[0, 0].axis('off')
+                    
+                    # Plot each explanation method
+                    plot_idx = 1
+                    for method_name, explanation_map in explanations.items():
+                        row = plot_idx // cols
+                        col = plot_idx % cols
+                        
+                        if row < rows and col < cols:
+                            # Normalize explanation for visualization
+                            if explanation_map.max() > explanation_map.min():
+                                norm_exp = (explanation_map - explanation_map.min()) / (explanation_map.max() - explanation_map.min())
+                            else:
+                                norm_exp = explanation_map
+                            
+                            if method_name == 'integrated_gradients':
+                                im = axes[row, col].imshow(explanation_map, cmap='RdBu_r')
+                                axes[row, col].set_title('Integrated Gradients\n(Primary)', fontweight='bold', fontsize=12)
+                            elif method_name == 'gradcam_plus':
+                                im = axes[row, col].imshow(explanation_map, cmap='jet')
+                                axes[row, col].set_title('Grad-CAM++\n(Baseline)', fontweight='bold', fontsize=12)
+                            elif method_name == 'lrp':
+                                im = axes[row, col].imshow(explanation_map, cmap='RdBu_r')
+                                axes[row, col].set_title('LRP\n(Optional)', fontweight='bold', fontsize=12)
+                            else:
+                                im = axes[row, col].imshow(explanation_map, cmap='jet')
+                                axes[row, col].set_title(f'{method_name.upper()}', fontweight='bold', fontsize=12)
+                            
+                            axes[row, col].axis('off')
+                            plt.colorbar(im, ax=axes[row, col], fraction=0.046, pad=0.04)
+                        
+                        plot_idx += 1
+                    
+                    # Hide unused subplots
+                    for idx in range(plot_idx, rows * cols):
+                        row = idx // cols
+                        col = idx % cols
+                        if row < rows and col < cols:
+                            axes[row, col].axis('off')
+                    
+                    plt.tight_layout()
+                    st.pyplot(fig)
                 
                 # Add interpretation text
                 st.subheader("🔍 Interpretation")
@@ -1086,6 +1132,29 @@ def main():
                 else:
                     st.warning("LIME not available - initialization failed")
                     explanation_text.append("⚠️ LIME not available")
+            
+            # Display textual reports
+            if textual_reports and generate_textual_report:
+                st.header("📝 Automated Pathology Report")
+                
+                for method_name, report in textual_reports:
+                    with st.expander(f"📋 {method_name} Detailed Analysis", expanded=True):
+                        st.text(report)
+                
+                # Download textual report
+                if st.button("📥 Download Pathology Report"):
+                    combined_report = "\n\n" + "="*80 + "\n\n".join([f"{name} REPORT:\n{report}" for name, report in textual_reports])
+                    
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"pathology_report_{timestamp}.txt"
+                    
+                    st.download_button(
+                        label="📄 Download Text Report",
+                        data=combined_report,
+                        file_name=filename,
+                        mime="text/plain",
+                        help="Download comprehensive pathology analysis report"
+                    )
             
             # Store explanation results for report
             if 'explanation_results' not in st.session_state:
