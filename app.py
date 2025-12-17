@@ -5,6 +5,7 @@ Purpose: Interactive demonstration for thesis with comprehensive explainability 
 import streamlit as st
 import torch
 import torch.nn.functional as F
+import torchvision.models
 import numpy as np
 import cv2
 from PIL import Image
@@ -79,8 +80,39 @@ st.markdown("""
 
 
 @st.cache_resource
+def load_transfer_learning_model():
+    """Load DenseNet201 transfer learning model for immediate use"""
+    try:
+        import torchvision.models as models
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        
+        # Load pre-trained DenseNet201
+        model = models.densenet201(pretrained=True)
+        
+        # Modify the classifier for binary classification (benign/malignant)
+        num_features = model.classifier.in_features
+        model.classifier = torch.nn.Sequential(
+            torch.nn.Dropout(0.5),
+            torch.nn.Linear(num_features, 2)  # 2 classes: benign, malignant
+        )
+        
+        model.to(device)
+        model.float()
+        model.eval()
+        
+        # Model info for transfer learning
+        best_acc = "Transfer Learning Model"
+        epoch = "Pre-trained"
+        
+        return model, device, best_acc, epoch
+    except Exception as e:
+        st.error(f"Error loading transfer learning model: {str(e)}")
+        return None, None, None, None
+
+
+@st.cache_resource
 def load_model(model_path):
-    """Load the trained model with caching"""
+    """Load the trained model with caching (legacy function - kept for compatibility)"""
     try:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         # Fix for PyTorch 2.6 compatibility
@@ -109,28 +141,47 @@ def initialize_explainers(_model, _device):
         shap_explainer = None
         lime_explainer = None
         
-        # Initialize Grad-CAM - try different layer names for custom model
-        try:
-            gradcam = GradCAM(_model, target_layer_name='densenet.features.norm5')
-        except Exception as e1:
-            try:
-                gradcam = GradCAM(_model, target_layer_name='features.norm5')
-            except Exception as e2:
-                try:
-                    gradcam = GradCAM(_model, target_layer_name='norm5')
-                except Exception as e3:
-                    st.warning(f"Could not initialize Grad-CAM: {str(e3)}")
+        # Initialize Grad-CAM - try different layer names for different model types
+        gradcam = None
+        gradcam_plus = None
         
-        try:
-            gradcam_plus = GradCAMPlusPlus(_model, target_layer_name='densenet.features.norm5')
-        except Exception as e1:
-            try:
-                gradcam_plus = GradCAMPlusPlus(_model, target_layer_name='features.norm5')
-            except Exception as e2:
+        # Get available layer names for debugging
+        layer_names = [name for name, _ in _model.named_modules()]
+        
+        # Try different layer names based on model architecture
+        target_layers_to_try = [
+            'features.norm5',  # Standard DenseNet
+            'features.denseblock4.denselayer16.norm2',  # DenseNet201 specific
+            'features.denseblock4',  # Fallback to block level
+            'densenet.features.norm5',  # Custom model naming
+            'norm5'  # Simple naming
+        ]
+        
+        for layer_name in target_layers_to_try:
+            if layer_name in layer_names:
                 try:
-                    gradcam_plus = GradCAMPlusPlus(_model, target_layer_name='norm5')
-                except Exception as e3:
-                    st.warning(f"Could not initialize Grad-CAM++: {str(e3)}")
+                    gradcam = GradCAM(_model, target_layer_name=layer_name)
+                    st.success(f"✅ Grad-CAM initialized with layer: {layer_name}")
+                    break
+                except Exception as e:
+                    continue
+        
+        if gradcam is None:
+            st.warning("⚠️ Could not initialize Grad-CAM - no suitable layer found")
+            st.info(f"Available layers: {layer_names[:10]}...")  # Show first 10 layers
+        
+        # Try same for Grad-CAM++
+        for layer_name in target_layers_to_try:
+            if layer_name in layer_names:
+                try:
+                    gradcam_plus = GradCAMPlusPlus(_model, target_layer_name=layer_name)
+                    st.success(f"✅ Grad-CAM++ initialized with layer: {layer_name}")
+                    break
+                except Exception as e:
+                    continue
+        
+        if gradcam_plus is None:
+            st.warning("⚠️ Could not initialize Grad-CAM++ - no suitable layer found")
         
         # Initialize SHAP with proper PyTorch model wrapper
         try:
@@ -549,24 +600,53 @@ def main():
     # Sidebar
     st.sidebar.header("⚙️ Configuration")
     
-    # Model selection
-    model_path = st.sidebar.text_input(
-        "Model Path", 
-        value="weight/save/40/iaff40_5.pth",
-        help="Path to the trained model file"
+    # Model selection option
+    model_type = st.sidebar.selectbox(
+        "Model Type",
+        ["Transfer Learning (DenseNet201)", "Custom Trained Model"],
+        help="Choose between pre-trained transfer learning model or custom trained model"
     )
     
-    # Load model
-    if not os.path.exists(model_path):
-        st.error(f"Model file not found: {model_path}")
-        st.info("Please train a model first or update the model path.")
-        return
-    
-    with st.spinner("Loading model..."):
-        model, device, best_acc, epoch = load_model(model_path)
-    
-    if model is None:
-        return
+    if model_type == "Transfer Learning (DenseNet201)":
+        # Use transfer learning model
+        with st.spinner("Loading DenseNet201 transfer learning model..."):
+            model, device, best_acc, epoch = load_transfer_learning_model()
+        
+        if model is None:
+            return
+            
+        st.sidebar.success("✅ Transfer learning model loaded!")
+        st.sidebar.info("**Model:** DenseNet201 (Pre-trained)")
+        st.sidebar.info("**Type:** Transfer Learning")
+        st.sidebar.info(f"**Device:** {device}")
+        st.sidebar.warning("⚠️ This model provides demo functionality. For actual classification, use a trained model.")
+        
+    else:
+        # Custom trained model path
+        model_path = st.sidebar.text_input(
+            "Model Path", 
+            value="weight/save/40/iaff40_5.pth",
+            help="Path to the trained model file"
+        )
+        
+        # Load custom model
+        if not os.path.exists(model_path):
+            st.error(f"Model file not found: {model_path}")
+            st.info("Please train a model first or update the model path.")
+            st.info("💡 **Tip:** Switch to 'Transfer Learning (DenseNet201)' above for immediate demo functionality!")
+            return
+        
+        with st.spinner("Loading custom trained model..."):
+            model, device, best_acc, epoch = load_model(model_path)
+        
+        if model is None:
+            return
+            
+        # Model info for custom model
+        st.sidebar.success("✅ Custom model loaded successfully!")
+        st.sidebar.info(f"**Best Accuracy:** {best_acc}")
+        st.sidebar.info(f"**Epoch:** {epoch}")
+        st.sidebar.info(f"**Device:** {device}")
     
     # Model info
     st.sidebar.success("✅ Model loaded successfully!")
@@ -594,11 +674,17 @@ def main():
                 st.sidebar.write("**Available model layers:**")
                 layer_names = []
                 for name, module in model.named_modules():
-                    if 'norm' in name.lower() or 'conv' in name.lower():
+                    if any(keyword in name.lower() for keyword in ['norm', 'conv', 'dense', 'features']):
                         layer_names.append(name)
                 
-                for name in layer_names[:10]:  # Show first 10 relevant layers
-                    st.sidebar.text(name)
+                # Show layers in expandable sections
+                with st.sidebar.expander("Feature Layers"):
+                    for name in layer_names[:15]:  # Show first 15 relevant layers
+                        st.text(name)
+                
+                # Show model structure
+                with st.sidebar.expander("Model Structure"):
+                    st.text(str(model)[:500] + "..." if len(str(model)) > 500 else str(model))
     
     # Main content
     col1, col2 = st.columns([1, 1])
