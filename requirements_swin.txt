@@ -1,0 +1,33 @@
+# Swin Transformer Explainability and Report Generation Requirements
+
+# Core Deep Learning
+torch>=2.0.0
+torchvision>=0.15.0
+timm>=0.9.0
+
+# Explainability
+numpy>=1.24.0
+opencv-python>=4.8.0
+scipy>=1.10.0
+
+# Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+Pillow>=10.0.0
+
+# LLM Integration (optional)
+transformers>=4.30.0
+accelerate>=0.20.0
+bitsandbytes>=0.41.0  # For quantization
+
+# Medical Domain (optional)
+# llava-med  # Install separately if needed
+# biomedgpt  # Install separately if needed
+
+# Data Processing
+pandas>=2.0.0
+scikit-learn>=1.3.0
+
+# Utilities
+tqdm>=4.65.0
+pyyaml>=6.0
