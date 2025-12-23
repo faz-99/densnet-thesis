@@ -7,7 +7,7 @@ import torch.nn as nn
 from torchvision import transforms
 import timm
 from model.swin_transformer import swin_tiny_patch4_window7_224
-import config
+import config_clean as config
 
 # Import after config to avoid circular import
 import sys
