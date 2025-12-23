@@ -1,0 +1,82 @@
+{
+  "gradcam": {
+    "insertion_auc": {
+      "mean": null,
+      "std": null,
+      "values": []
+    },
+    "deletion_auc": {
+      "mean": null,
+      "std": null,
+      "values": []
+    },
+    "stability": {
+      "mean": null,
+      "std": null,
+      "values": []
+    },
+    "iou": {
+      "mean": null,
+      "std": null,
+      "values": []
+    },
+    "processing_time": {
+      "mean": 0.45673279762268065,
+      "std": 0.028050279363999175,
+      "values": [
+        0.4423201084136963,
+        0.43435168266296387,
+        0.5191202163696289,
+        0.4882185459136963,
+        0.4491395950317383,
+        0.42591428756713867,
+        0.42902278900146484,
+        0.44306325912475586,
+        0.4627997875213623,
+        0.47337770462036133
+      ]
+    },
+    "success_rate": 0.0,
+    "total_samples": 0
+  },
+  "gradcam_plus": {
+    "insertion_auc": {
+      "mean": null,
+      "std": null,
+      "values": []
+    },
+    "deletion_auc": {
+      "mean": null,
+      "std": null,
+      "values": []
+    },
+    "stability": {
+      "mean": null,
+      "std": null,
+      "values": []
+    },
+    "iou": {
+      "mean": null,
+      "std": null,
+      "values": []
+    },
+    "processing_time": {
+      "mean": 0.46339576244354247,
+      "std": 0.027129534304937197,
+      "values": [
+        0.4678189754486084,
+        0.45724987983703613,
+        0.4820747375488281,
+        0.4861335754394531,
+        0.4373340606689453,
+        0.418165922164917,
+        0.4302845001220703,
+        0.46167826652526855,
+        0.48235416412353516,
+        0.5108635425567627
+      ]
+    },
+    "success_rate": 0.0,
+    "total_samples": 0
+  }
+}
