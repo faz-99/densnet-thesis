@@ -2,7 +2,7 @@ import timm
 import torch
 from torch import nn
 
-import config
+import config_clean as config
 from acb import ACBlock
 from model.SENet import SELayer
 

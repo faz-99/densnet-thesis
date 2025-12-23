@@ -18,7 +18,7 @@ def run_complete_pipeline(quick_run=False):
     if quick_run:
         print("Running in QUICK MODE (reduced epochs)")
         # Temporarily modify config for quick run
-        import config
+        import config_clean as config
         original_epochs = config.max_epoch
         config.max_epoch = 2
     

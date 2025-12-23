@@ -77,8 +77,12 @@ if __name__ == "__main__":
     swin = ModelFactory.create_swin()
     preprocessing = ModelFactory.get_preprocessing()
     
+    # Set models to eval mode for testing
+    densenet.eval()
+    swin.eval()
+    
     # Test input
-    x = torch.randn(1, 3, 224, 224)
+    x = torch.randn(2, 3, 224, 224)  # Use batch size 2 to avoid BN issues
     
     # Test DenseNet
     densenet_out = densenet(x)

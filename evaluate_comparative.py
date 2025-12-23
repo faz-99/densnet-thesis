@@ -14,7 +14,7 @@ from datetime import datetime
 
 from preprocessing_pipeline import ModelFactory
 from utils.load_dataset2 import MyDataset
-import config
+import config_clean as config
 
 class ModelEvaluator:
     """Evaluate trained models"""

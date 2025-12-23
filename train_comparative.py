@@ -12,8 +12,8 @@ import os
 from datetime import datetime
 
 from preprocessing_pipeline import ModelFactory
-from utils.load_dataset2 import MyDataset
-import config
+from simple_dataset import MyDataset
+import config_clean as config
 
 class ModelTrainer:
     """Unified trainer for both models"""
