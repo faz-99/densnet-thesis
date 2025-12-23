@@ -1,1 +1,1 @@
-# Explainability module for DenseNet medical image classification
+# Explainability package

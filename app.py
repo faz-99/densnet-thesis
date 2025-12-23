@@ -301,9 +301,16 @@ def preprocess_image(image, target_size=(224, 224)):
     # Normalize to [0, 1]
     image_normalized = image_resized.astype(np.float32) / 255.0
     
-    # Apply dataset normalization (from config)
-    mean = np.array(config.dataset_mean)
-    std = np.array(config.dataset_std)
+    # Apply dataset normalization (fallback to default values if config not available)
+    try:
+        mean = np.array(config.dataset_mean)
+        std = np.array(config.dataset_std)
+    except AttributeError:
+        # Fallback to standard ImageNet normalization
+        mean = np.array([0.485, 0.456, 0.406])
+        std = np.array([0.229, 0.224, 0.225])
+        st.warning("Using default ImageNet normalization values")
+    
     image_normalized = (image_normalized - mean) / std
     
     # Convert to tensor (C, H, W) with correct dtype
@@ -331,8 +338,14 @@ def create_comparison_plot(original, normalized):
     ax1.axis('off')
     
     # Denormalize for display
-    mean = np.array(config.dataset_mean)
-    std = np.array(config.dataset_std)
+    try:
+        mean = np.array(config.dataset_mean)
+        std = np.array(config.dataset_std)
+    except AttributeError:
+        # Fallback to standard ImageNet normalization
+        mean = np.array([0.485, 0.456, 0.406])
+        std = np.array([0.229, 0.224, 0.225])
+    
     normalized_display = normalized * std + mean
     normalized_display = np.clip(normalized_display, 0, 1)
     
