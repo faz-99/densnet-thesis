@@ -1,0 +1,36 @@
+# DenLsNet Flexible Requirements
+# Updated for current PyTorch versions
+
+# Core deep learning
+torch>=2.0.0
+torchvision>=0.15.0
+timm>=0.6.0
+
+# Data processing
+numpy>=1.21.0
+pandas>=1.3.0
+Pillow>=8.3.0
+scikit-learn>=1.0.0
+
+# Visualization
+matplotlib>=3.4.0
+seaborn>=0.11.0
+plotly>=5.0.0
+
+# Web framework
+streamlit>=1.20.0
+
+# Image processing
+opencv-python>=4.5.0
+scikit-image>=0.19.0
+
+# Explainability libraries
+shap>=0.41.0
+lime>=0.2.0.1
+
+# Utilities
+tqdm>=4.62.0
+pathlib2>=2.3.6
+
+# Optional: For better performance
+numba>=0.56.0
