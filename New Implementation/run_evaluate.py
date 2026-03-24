@@ -156,6 +156,17 @@ def evaluate_xai(model, val_loader, device, n_samples, class_names):
             )
             stability_scores.append(stability)
 
+        # TTA Stability (Augment-Explain-Inverse-Compare)
+        if i < 10:  # TTA is expensive, run on a subset
+            tta_methods = ["grad_cam", "integrated_gradients", "attention_rollout"]
+            tta_result = xai_manager.evaluate_tta_stability(
+                input_tensor, pred, methods=tta_methods,
+            )
+            for method, res in tta_result.items():
+                if method not in all_results.get("tta_stability", {}):
+                    all_results.setdefault("tta_stability", {})[method] = []
+                all_results["tta_stability"][method].append(res["stability_score"])
+
         # Save XAI panel for first few samples
         if i < 5:
             vis_path = str(XAI_OUTPUT_DIR / f"eval_sample_{i}_xai.png")
@@ -163,6 +174,27 @@ def evaluate_xai(model, val_loader, device, n_samples, class_names):
                 input_tensor, heatmaps, class_names=class_names,
                 target_class=pred, save_path=vis_path,
             )
+
+            # Also save TTA stability visualisation and consensus comparison
+            if i < 3:
+                tta_methods_vis = ["grad_cam", "integrated_gradients", "attention_rollout"]
+                tta_res = xai_manager.evaluate_tta_stability(
+                    input_tensor, pred, methods=tta_methods_vis,
+                )
+                for m in tta_methods_vis:
+                    if m in tta_res:
+                        tta_vis = str(XAI_OUTPUT_DIR / f"eval_sample_{i}_tta_{m}.png")
+                        xai_manager.visualize_tta(
+                            input_tensor, tta_res, m, save_path=tta_vis,
+                        )
+
+                consensus = xai_manager.get_consensus_heatmaps(
+                    input_tensor, pred, methods=tta_methods_vis,
+                )
+                cons_vis = str(XAI_OUTPUT_DIR / f"eval_sample_{i}_consensus.png")
+                xai_manager.visualize_consensus_comparison(
+                    input_tensor, heatmaps, consensus, save_path=cons_vis,
+                )
 
     # Compute means
     summary = {"faithfulness": {}, "localization": {}, "robustness": {}}
@@ -185,6 +217,14 @@ def evaluate_xai(model, val_loader, device, n_samples, class_names):
         summary["robustness"]["grad_cam_stability"] = {
             "mean": float(np.mean(stability_scores)),
             "std": float(np.std(stability_scores)),
+        }
+
+    # TTA stability summary
+    summary["tta_stability"] = {}
+    for method, scores in all_results.get("tta_stability", {}).items():
+        summary["tta_stability"][method] = {
+            "mean": float(np.mean(scores)),
+            "std": float(np.std(scores)),
         }
 
     return summary
@@ -232,9 +272,15 @@ def main():
               f"Del AUC={scores['deletion_auc_mean']:.4f}±{scores['deletion_auc_std']:.4f}")
 
     if xai_results["robustness"]:
-        print("\n[Evaluate] Robustness:")
+        print("\n[Evaluate] Robustness (ε-noise):")
         for method, scores in xai_results["robustness"].items():
             print(f"  {method}: {scores['mean']:.4f}±{scores['std']:.4f}")
+
+    if xai_results.get("tta_stability"):
+        print("\n[Evaluate] TTA Stability (Augment-Explain-Inverse-Compare):")
+        for method, scores in xai_results["tta_stability"].items():
+            print(f"  {method}: {scores['mean']:.4f}±{scores['std']:.4f}")
+        print("  (Higher = more rotation/flip invariant explanations)")
 
     # Save all results
     full_results = {

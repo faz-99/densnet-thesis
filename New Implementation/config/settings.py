@@ -124,6 +124,11 @@ XAI_CONFIG = {
         "lambda_l1": 0.01,
         "target_confidence": 0.9,
     },
+    "tta": {
+        "enabled": True,
+        "similarity_metric": "ssim",   # "ssim" | "pearson"
+        "generate_consensus": True,      # produce noise-reduced consensus heatmaps
+    },
 }
 
 # ──────────────────────────────────────────────

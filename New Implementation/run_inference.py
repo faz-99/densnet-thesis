@@ -118,13 +118,44 @@ def run_single(
     for method, scores in eval_results["faithfulness"].items():
         print(f"    {method}: Ins={scores['insertion_auc']:.4f}, Del={scores['deletion_auc']:.4f}")
 
+    # 6. TTA Stability evaluation
+    tta_methods = [m for m in (xai_methods or ["grad_cam", "integrated_gradients", "attention_rollout"])
+                   if m not in ("counterfactual", "shap", "lime")]  # skip expensive methods
+    print(f"  TTA stability evaluation ({len(tta_methods)} methods)...")
+    tta_results = xai_manager.evaluate_tta_stability(
+        input_tensor, pred_class, methods=tta_methods,
+    )
+    for method, res in tta_results.items():
+        print(f"    {method}: Stability={res['stability_score']:.4f}")
+
+    # TTA stability visualisation
+    for method in tta_methods:
+        if method in tta_results:
+            tta_vis_path = str(XAI_OUTPUT_DIR / f"{img_name}_tta_{method}.png")
+            xai_manager.visualize_tta(
+                input_tensor, tta_results, method, save_path=tta_vis_path,
+            )
+
+    # 7. Consensus heatmaps
+    print(f"  Generating consensus heatmaps...")
+    consensus_heatmaps = xai_manager.get_consensus_heatmaps(
+        input_tensor, pred_class, methods=tta_methods,
+    )
+    consensus_vis_path = str(XAI_OUTPUT_DIR / f"{img_name}_consensus_comparison.png")
+    xai_manager.visualize_consensus_comparison(
+        input_tensor, heatmaps, consensus_heatmaps, save_path=consensus_vis_path,
+    )
+    print(f"  Consensus comparison saved: {consensus_vis_path}")
+
     return {
         "image": image_path,
         "prediction": class_label,
         "confidence": confidence,
         "heatmaps": heatmaps,
+        "consensus_heatmaps": consensus_heatmaps,
         "report": report,
         "eval_results": eval_results,
+        "tta_stability": {m: r["stability_score"] for m, r in tta_results.items()},
     }
 
 

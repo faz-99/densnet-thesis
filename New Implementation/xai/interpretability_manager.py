@@ -10,6 +10,7 @@ from typing import Dict, Optional
 
 from config.settings import XAI_CONFIG, XAI_OUTPUT_DIR, DATASET_CONFIG
 from data.preprocessing import denormalize
+from xai.tta_xai import TTAExplainabilityEngine
 
 
 class InterpretabilityManager:
@@ -62,6 +63,9 @@ class InterpretabilityManager:
         # SHAP and LIME are lazily initialized (need background data / are slow)
         if self.background_data is not None:
             self._init_shap()
+
+        # TTA engine
+        self.tta_engine = TTAExplainabilityEngine(self)
 
     def _init_shap(self):
         from xai.shap_explainer import SHAPExplainer
@@ -130,6 +134,67 @@ class InterpretabilityManager:
         if cf is None:
             return {}
         return cf.generate_with_details(input_tensor.to(self.device), target_class)
+
+    # ── TTA: Test-Time Augmentation XAI ──
+
+    def evaluate_tta_stability(
+        self,
+        input_tensor: torch.Tensor,
+        target_class: int,
+        methods: list = None,
+        metric: str = None,
+    ) -> Dict:
+        """Evaluate XAI stability under geometric augmentations (TTA).
+
+        Returns per-method stability scores and per-augmentation similarities.
+        """
+        metric = metric or XAI_CONFIG.get("tta", {}).get("similarity_metric", "ssim")
+        return self.tta_engine.evaluate_stability(
+            input_tensor, target_class, methods=methods, metric=metric,
+        )
+
+    def get_consensus_heatmaps(
+        self,
+        input_tensor: torch.Tensor,
+        target_class: int,
+        methods: list = None,
+    ) -> Dict[str, np.ndarray]:
+        """Generate Rotation-Averaged Consensus Heatmaps (noise-reduced).
+
+        Thesis argument: 'By using a Rotation-Averaged XAI Ensemble,
+        I reduced explanation noise by X% and increased localization accuracy.'
+        """
+        return self.tta_engine.consensus_all_methods(
+            input_tensor, target_class, methods=methods,
+        )
+
+    def visualize_tta(
+        self,
+        input_tensor: torch.Tensor,
+        stability_results: Dict,
+        method: str,
+        save_path: str = None,
+        show: bool = False,
+    ) -> plt.Figure:
+        """Visualize TTA stability for one method."""
+        return self.tta_engine.visualize_stability(
+            input_tensor, stability_results, method,
+            save_path=save_path, show=show,
+        )
+
+    def visualize_consensus_comparison(
+        self,
+        input_tensor: torch.Tensor,
+        original_heatmaps: Dict[str, np.ndarray],
+        consensus_heatmaps: Dict[str, np.ndarray],
+        save_path: str = None,
+        show: bool = False,
+    ) -> plt.Figure:
+        """Side-by-side Original vs Consensus heatmaps."""
+        return self.tta_engine.visualize_consensus_comparison(
+            input_tensor, original_heatmaps, consensus_heatmaps,
+            save_path=save_path, show=show,
+        )
 
     # ── Visualization ──
 
