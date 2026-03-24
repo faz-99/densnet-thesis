@@ -1,0 +1,94 @@
+"""
+Training entry point for the Multimodal Histopathology XAI Framework.
+Supports magnification-aware training across 40X, 100X, 200X, 400X.
+
+Usage:
+    python run_train.py                         # default 400X, 8-class
+    python run_train.py --task binary            # binary classification
+    python run_train.py --magnification all      # train on all magnifications
+    python run_train.py --no-wandb               # disable WandB logging
+"""
+import argparse
+import sys
+import os
+
+# Ensure the project root is on the path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import torch
+from config.settings import DATASET_CONFIG, MODEL_CONFIG, TRAIN_CONFIG
+from data.breakhis_dataset import get_dataloaders
+from models.ensemble import HybridEnsemble
+from training.trainer import Trainer
+
+
+def parse_args():
+    p = argparse.ArgumentParser(description="Train Hybrid Ensemble on BreaKHis")
+    p.add_argument("--task", choices=["binary", "multiclass"], default="multiclass")
+    p.add_argument("--magnification", default="400X",
+                   help="40X|100X|200X|400X|all")
+    p.add_argument("--epochs", type=int, default=None)
+    p.add_argument("--batch-size", type=int, default=None)
+    p.add_argument("--lr", type=float, default=None)
+    p.add_argument("--fusion", choices=["mlp", "weighted_avg"], default=None)
+    p.add_argument("--no-wandb", action="store_true")
+    p.add_argument("--resume", type=str, default=None, help="Path to checkpoint")
+    p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    return p.parse_args()
+
+
+def main():
+    args = parse_args()
+
+    # Override config
+    if args.epochs:
+        TRAIN_CONFIG["epochs"] = args.epochs
+    if args.lr:
+        TRAIN_CONFIG["lr"] = args.lr
+
+    num_classes = 2 if args.task == "binary" else 8
+    MODEL_CONFIG["num_classes"] = num_classes
+    MODEL_CONFIG["task"] = args.task
+    if args.fusion:
+        MODEL_CONFIG["fusion"]["method"] = args.fusion
+
+    magnifications = (
+        DATASET_CONFIG["magnifications"]
+        if args.magnification == "all"
+        else [args.magnification]
+    )
+
+    for mag in magnifications:
+        print(f"\n{'='*60}")
+        print(f"Training on magnification: {mag} | Task: {args.task} | Classes: {num_classes}")
+        print(f"{'='*60}\n")
+
+        train_loader, val_loader = get_dataloaders(
+            task=args.task,
+            magnification=mag,
+            batch_size=args.batch_size,
+        )
+
+        model = HybridEnsemble(num_classes=num_classes)
+
+        if args.resume:
+            Trainer.load_checkpoint(model, args.resume, args.device)
+
+        class_weights = train_loader.dataset.get_class_weights()
+
+        trainer = Trainer(
+            model=model,
+            train_loader=train_loader,
+            val_loader=val_loader,
+            device=args.device,
+            use_wandb=not args.no_wandb,
+            class_weights=class_weights,
+            run_name=f"hybrid_{args.task}_{mag}",
+        )
+
+        history = trainer.train()
+        print(f"[Done] Magnification {mag} training complete.\n")
+
+
+if __name__ == "__main__":
+    main()
