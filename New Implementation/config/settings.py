@@ -40,6 +40,15 @@ DATASET_CONFIG = {
     "num_classes_multi": 8,
     "mean": (0.5613, 0.5778, 0.6032),
     "std": (0.2114, 0.1957, 0.1590),
+    # Stain normalization
+    "stain_norm": "macenko",       # "macenko" | "reinhard" | None
+    # Patient-level splitting
+    "patient_split": True,
+    "test_size": 0.2,
+    "val_size": 0.1,
+    "split_seed": 42,
+    # Kaggle download
+    "kaggle_dataset": "full",      # "full" (ambarish/breakhis) | "400x"
 }
 
 # ──────────────────────────────────────────────
