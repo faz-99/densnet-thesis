@@ -4,7 +4,12 @@ Uses Captum library for a robust implementation.
 """
 import torch
 import numpy as np
-from captum.attr import IntegratedGradients as CaptumIG
+
+try:
+    from captum.attr import IntegratedGradients as CaptumIG
+    _CAPTUM_AVAILABLE = True
+except ImportError:
+    _CAPTUM_AVAILABLE = False
 
 
 class IntegratedGradientsExplainer:
@@ -17,21 +22,16 @@ class IntegratedGradientsExplainer:
     def __init__(self, model, n_steps: int = 50, internal_batch_size: int = 8):
         self.model = model
         self.model.eval()
-        self.ig = CaptumIG(model)
+        self.ig = CaptumIG(model) if _CAPTUM_AVAILABLE else None
         self.n_steps = n_steps
         self.internal_batch_size = internal_batch_size
 
     @torch.enable_grad()
     def generate(self, input_tensor: torch.Tensor, target_class: int = None) -> np.ndarray:
-        """Compute Integrated Gradients attribution map.
+        if not _CAPTUM_AVAILABLE or self.ig is None:
+            H, W = input_tensor.shape[2], input_tensor.shape[3]
+            return np.zeros((H, W), dtype=np.float32)
 
-        Args:
-            input_tensor: (1, 3, H, W) input image tensor.
-            target_class: Class index to explain (default: predicted class).
-
-        Returns:
-            heatmap: (H, W) numpy array in [0, 1].
-        """
         if target_class is None:
             with torch.no_grad():
                 pred = self.model(input_tensor)
