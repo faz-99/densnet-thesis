@@ -126,7 +126,7 @@ class Trainer:
 
         # ── AMP ──
         self.use_amp = cfg["mixed_precision"] and device == "cuda"
-        self.scaler = GradScaler(enabled=self.use_amp)
+        self.scaler = torch.amp.GradScaler('cuda', enabled=self.use_amp)
 
         # ── Early stopping ──
         self.patience = cfg["early_stopping_patience"]
