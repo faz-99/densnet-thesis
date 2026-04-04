@@ -72,13 +72,15 @@ def main():
             batch_size=args.batch_size,
         )
 
+        # get class weights from the full dataset before any subsetting
+        class_weights = train_loader.dataset.get_class_weights()
+
         # Subset for quick CPU testing — balanced across classes
         if args.subset:
             import numpy as np
             from torch.utils.data import DataLoader, Subset, WeightedRandomSampler
             ds = train_loader.dataset
             labels = np.array([s[1] for s in ds.samples])
-            num_classes = MODEL_CONFIG["num_classes"]
             per_class = args.subset // num_classes
             indices = []
             for c in range(num_classes):
@@ -97,8 +99,6 @@ def main():
 
         if args.resume:
             Trainer.load_checkpoint(model, args.resume, args.device)
-
-        class_weights = train_loader.dataset.get_class_weights()
 
         trainer = Trainer(
             model=model,
