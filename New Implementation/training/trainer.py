@@ -171,7 +171,10 @@ class Trainer:
         running_loss = 0.0
         all_preds, all_labels = [], []
 
-        for step, (images, labels, _mags) in enumerate(self.train_loader):
+        from tqdm import tqdm
+        pbar = tqdm(self.train_loader, desc=f"Epoch {epoch+1}/{self.epochs}", leave=True)
+
+        for step, (images, labels, _mags) in enumerate(pbar):
             images = images.to(self.device)
             labels = labels.to(self.device)
 
@@ -194,6 +197,8 @@ class Trainer:
             preds = logits.argmax(dim=1).cpu().numpy()
             all_preds.extend(preds)
             all_labels.extend(labels.cpu().numpy())
+
+            pbar.set_postfix(loss=f"{loss.item():.4f}", acc=f"{accuracy_score(all_labels, all_preds):.4f}")
 
             # Logging
             if self.use_wandb and step % WANDB_CONFIG["log_interval"] == 0:
