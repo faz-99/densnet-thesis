@@ -177,7 +177,7 @@ class Trainer:
 
             self.optimizer.zero_grad()
 
-            with autocast(enabled=self.use_amp):
+            with torch.amp.autocast('cuda', enabled=self.use_amp):
                 logits = self.model(images)
                 loss = self.criterion(logits, labels)
 
@@ -219,7 +219,7 @@ class Trainer:
             images = images.to(self.device)
             labels = labels.to(self.device)
 
-            with autocast(enabled=self.use_amp):
+            with torch.amp.autocast('cuda', enabled=self.use_amp):
                 logits = self.model(images)
                 loss = self.criterion(logits, labels)
 

@@ -16,6 +16,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import torch
+from torch.utils.data import Subset
 from config.settings import DATASET_CONFIG, MODEL_CONFIG, TRAIN_CONFIG
 from data.breakhis_dataset import get_dataloaders
 from models.ensemble import HybridEnsemble
@@ -34,6 +35,8 @@ def parse_args():
     p.add_argument("--no-wandb", action="store_true")
     p.add_argument("--resume", type=str, default=None, help="Path to checkpoint")
     p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    p.add_argument("--subset", type=int, default=None,
+                   help="Limit dataset to N images for quick CPU testing (e.g. 800)")
     return p.parse_args()
 
 
@@ -68,6 +71,27 @@ def main():
             magnification=mag,
             batch_size=args.batch_size,
         )
+
+        # Subset for quick CPU testing — balanced across classes
+        if args.subset:
+            import numpy as np
+            from torch.utils.data import DataLoader, Subset, WeightedRandomSampler
+            ds = train_loader.dataset
+            labels = np.array([s[1] for s in ds.samples])
+            num_classes = MODEL_CONFIG["num_classes"]
+            per_class = args.subset // num_classes
+            indices = []
+            for c in range(num_classes):
+                cls_idx = np.where(labels == c)[0]
+                chosen = cls_idx[:per_class] if len(cls_idx) >= per_class else cls_idx
+                indices.extend(chosen.tolist())
+            sub_ds = Subset(ds, indices)
+            sub_weights = ds.get_sample_weights()[indices]
+            sampler = WeightedRandomSampler(sub_weights, len(sub_weights), replacement=True)
+            bs = args.batch_size or DATASET_CONFIG["batch_size"]
+            train_loader = DataLoader(sub_ds, batch_size=bs, sampler=sampler,
+                                      num_workers=0, pin_memory=False, drop_last=True)
+            print(f"[Subset] Using {len(sub_ds)} training images ({per_class} per class)")
 
         model = HybridEnsemble(num_classes=num_classes)
 
