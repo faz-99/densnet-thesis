@@ -76,7 +76,7 @@ def step_patient_split(root_dir: str, output_dir: str, mag: str = None):
     # Save to disk
     materialize_split(
         train_recs, test_recs, output_dir,
-        val_recs=val_recs, structure="multiclass"
+        val_records=val_recs, structure="multiclass"
     )
     return train_recs, test_recs, val_recs
 
