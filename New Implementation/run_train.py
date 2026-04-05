@@ -36,7 +36,9 @@ def parse_args():
     p.add_argument("--resume", type=str, default=None, help="Path to checkpoint")
     p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     p.add_argument("--subset", type=int, default=None,
-                   help="Limit dataset to N images for quick CPU testing (e.g. 800)")
+                   help="Limit training to N images for quick CPU testing (e.g. 800)")
+    p.add_argument("--val-subset", type=int, default=None,
+                   help="Limit validation to N images (e.g. 200)")
     return p.parse_args()
 
 
@@ -94,6 +96,18 @@ def main():
             train_loader = DataLoader(sub_ds, batch_size=bs, sampler=sampler,
                                       num_workers=0, pin_memory=False, drop_last=True)
             print(f"[Subset] Using {len(sub_ds)} training images ({per_class} per class)")
+
+        # Val subset for faster CPU iteration
+        if args.val_subset:
+            import numpy as np
+            from torch.utils.data import DataLoader, Subset
+            val_ds = val_loader.dataset
+            val_indices = list(range(min(args.val_subset, len(val_ds))))
+            val_sub = Subset(val_ds, val_indices)
+            bs = args.batch_size or DATASET_CONFIG["batch_size"]
+            val_loader = DataLoader(val_sub, batch_size=bs, shuffle=False,
+                                    num_workers=0, pin_memory=False)
+            print(f"[Val Subset] Using {len(val_sub)} validation images")
 
         model = HybridEnsemble(num_classes=num_classes)
 

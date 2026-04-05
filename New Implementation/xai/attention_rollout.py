@@ -47,7 +47,7 @@ class AttentionRollout:
                 original_forward = module.forward
                 self._originals[name] = original_forward
 
-                def patched_forward(self_mod, x, _orig=original_forward):
+                def patched_forward(self_mod, x, mask=None, _orig=original_forward):
                     B_, N, C = x.shape
                     qkv = self_mod.qkv(x).reshape(B_, N, 3, self_mod.num_heads, C // self_mod.num_heads)
                     qkv = qkv.permute(2, 0, 3, 1, 4)
@@ -66,8 +66,13 @@ class AttentionRollout:
                         relative_position_bias = relative_position_bias.permute(2, 0, 1).contiguous()
                         attn = attn + relative_position_bias.unsqueeze(0)
 
+                    if mask is not None:
+                        nW = mask.shape[0]
+                        attn = attn.view(B_ // nW, nW, self_mod.num_heads, N, N) + mask.unsqueeze(1).unsqueeze(0)
+                        attn = attn.view(-1, self_mod.num_heads, N, N)
+
                     attn = attn.softmax(dim=-1)
-                    self_mod._attn_probs = attn  # store for hook
+                    self_mod._attn_probs = attn.detach()  # store for hook
                     attn = self_mod.attn_drop(attn)
                     x = (attn @ v).transpose(1, 2).reshape(B_, N, C)
                     x = self_mod.proj(x)

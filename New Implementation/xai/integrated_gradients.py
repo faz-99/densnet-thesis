@@ -50,7 +50,7 @@ class IntegratedGradientsExplainer:
         )
 
         # Aggregate over channels → spatial map
-        attr_map = attributions.squeeze(0).abs().sum(dim=0).cpu().numpy()
+        attr_map = attributions.squeeze(0).abs().sum(dim=0).detach().cpu().numpy()
 
         # Normalize
         a_min, a_max = attr_map.min(), attr_map.max()
