@@ -1,0 +1,38 @@
+# Core deep learning
+torch>=2.0.0
+torchvision>=0.15.0
+timm>=0.9.0
+
+# Data / image processing
+numpy>=1.24.0
+Pillow>=9.0.0
+opencv-python>=4.7.0
+scikit-image>=0.20.0
+scikit-learn>=1.2.0
+
+# XAI methods
+shap>=0.42.0
+lime>=0.2.0.1
+captum>=0.6.0
+
+# Visualisation
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Metrics
+pandas>=2.0.0
+scipy>=1.10.0
+
+# Report quality metrics
+nltk>=3.8.0
+rouge-score>=0.1.2
+bert-score>=0.3.13
+
+# LLM report generation (optional – install separately if GPU available)
+# transformers>=4.40.0
+# accelerate>=0.27.0
+# bitsandbytes>=0.41.0   # for 4-bit quantisation on GPU
+
+# Notebook / export
+nbformat>=5.7.0
+nbconvert>=7.0.0
