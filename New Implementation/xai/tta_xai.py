@@ -306,7 +306,7 @@ class TTAExplainabilityEngine:
         per_aug = result["per_augmentation"]
 
         # Denormalize original image
-        img = denormalize(input_tensor.squeeze(0)).cpu().numpy()
+        img = denormalize(input_tensor.squeeze(0)).detach().cpu().numpy()
         img = np.transpose(img, (1, 2, 0))  # HWC
 
         aug_order = ["original", "rot90", "rot180", "rot270", "hflip", "vflip"]
@@ -382,7 +382,7 @@ class TTAExplainabilityEngine:
         """
         from data.preprocessing import denormalize
 
-        img = denormalize(input_tensor.squeeze(0)).cpu().numpy()
+        img = denormalize(input_tensor.squeeze(0)).detach().cpu().numpy()
         img = np.transpose(img, (1, 2, 0))
 
         methods = list(consensus_heatmaps.keys())
