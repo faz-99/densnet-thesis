@@ -155,3 +155,102 @@ def freeze_backbone(model: nn.Module, freeze: bool = True):
             param.requires_grad = True  # head always trainable
         else:
             param.requires_grad = not freeze
+
+
+# ---------------------------------------------------------------------------
+# Swin-specific progressive fine-tuning helpers
+# ---------------------------------------------------------------------------
+
+# timm Swin-Base structure:
+#   patch_embed (stem)
+#   layers.0  (stage 1, 2 blocks)
+#   layers.1  (stage 2, 2 blocks)
+#   layers.2  (stage 3, 18 blocks)  <- bulk of computation
+#   layers.3  (stage 4, 2 blocks)   <- "last 2 blocks"
+#   norm      (final LayerNorm)
+#   head.fc   (classifier)
+
+_SWIN_STAGE_TRAINABLE = {
+    1: ("head.", "norm.", "layers.3."),
+    2: ("head.", "norm.", "layers.3.", "layers.2."),
+    3: None,  # everything
+}
+
+
+def freeze_swin_for_stage(model: nn.Module, stage: int) -> int:
+    """
+    Configure which parts of a Swin model are trainable for a given fine-tuning stage.
+
+    Stage 1: head + final norm + last 2 transformer blocks (layers.3).
+             Pretrained features are protected; only the classifier and the deepest
+             attention blocks adapt. Prevents the random head from corrupting backbone.
+    Stage 2: + layers.2 (Swin-Base's deep stage with 18 blocks).
+             Now the bulk of attention adapts to histopathology textures.
+    Stage 3: full model. Combine with layer-wise LR decay so shallow layers
+             (closer to ImageNet features) get smaller updates than deep layers.
+
+    Returns the number of trainable parameters after configuration.
+    """
+    if stage not in _SWIN_STAGE_TRAINABLE:
+        raise ValueError(f"stage must be 1, 2, or 3; got {stage}")
+
+    prefixes = _SWIN_STAGE_TRAINABLE[stage]
+
+    if prefixes is None:
+        for p in model.parameters():
+            p.requires_grad = True
+    else:
+        for name, p in model.named_parameters():
+            p.requires_grad = any(name.startswith(pref) for pref in prefixes)
+
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+
+# Order matters: head first so head.fc.* doesn't get swallowed by a more general prefix.
+# Decay exponents are the layer's "depth" from the head (head=0, deepest stage=1, ...).
+_SWIN_LAYERWISE_DEPTH = [
+    ("head.", 0),
+    ("norm.", 1),
+    ("layers.3.", 1),
+    ("layers.2.", 2),
+    ("layers.1.", 3),
+    ("layers.0.", 4),
+    ("patch_embed.", 5),
+]
+
+
+def get_swin_layerwise_param_groups(
+    model: nn.Module, base_lr: float, decay: float = 0.7
+) -> List[Dict]:
+    """
+    Build AdamW parameter groups with per-layer LR decay for Swin.
+
+    LR for a parameter at depth d is base_lr * decay**d, so the head learns at base_lr,
+    each stage one step shallower learns at base_lr * decay, and the patch stem learns
+    slowest. This is the standard recipe for full-model fine-tuning of ViTs/Swin and
+    keeps shallow ImageNet features from drifting under the gradient pressure of a
+    smaller downstream dataset.
+    """
+    groups: List[Dict] = []
+    seen: set = set()
+
+    for prefix, depth in _SWIN_LAYERWISE_DEPTH:
+        params = []
+        for name, p in model.named_parameters():
+            if name in seen or not p.requires_grad:
+                continue
+            if name.startswith(prefix):
+                params.append(p)
+                seen.add(name)
+        if params:
+            groups.append({"params": params, "lr": base_lr * (decay ** depth)})
+
+    # Catch-all for any parameter we didn't anticipate (none expected for Swin-Base).
+    leftovers = [
+        p for name, p in model.named_parameters()
+        if name not in seen and p.requires_grad
+    ]
+    if leftovers:
+        groups.append({"params": leftovers, "lr": base_lr * (decay ** 5)})
+
+    return groups

@@ -235,6 +235,189 @@ class Trainer:
             json.dump(summary, f, indent=2)
 
 
+def train_swin_progressive(
+    model: nn.Module,
+    train_loader: DataLoader,
+    val_loader: DataLoader,
+    criterion: nn.Module,
+    experiment_name: str,
+    device: torch.device = DEVICE,
+    weight_decay: float = 1e-4,
+    patience: int = 15,
+    phase_epochs: Tuple[int, int, int] = (20, 40, 40),
+    phase_lrs: Tuple[float, float, float] = (1e-4, 3e-5, 1e-5),
+    layerwise_decay: float = 0.7,
+) -> Tuple[Dict, float]:
+    """
+    Three-stage progressive fine-tuning loop for Swin-Base.
+
+    Phase 1 (head + last 2 blocks): protects pretrained features while the head warms up.
+    Phase 2 (+ deep stage layers.2): bulk of attention adapts to H&E texture.
+    Phase 3 (all + layer-wise LR decay): full model fine-tune with shallow layers
+    learning slowest.
+
+    A fresh AdamW optimizer + CosineAnnealingLR is built per phase. Validation F1 is
+    tracked across all phases; the best checkpoint and a single concatenated history
+    are saved. Early stopping uses one global counter.
+    """
+    from .models import freeze_swin_for_stage, get_swin_layerwise_param_groups
+
+    save_dir = os.path.join(WEIGHTS_DIR, experiment_name)
+    os.makedirs(save_dir, exist_ok=True)
+    results_dir = os.path.join(RESULTS_DIR, experiment_name)
+    os.makedirs(results_dir, exist_ok=True)
+
+    model = model.to(device)
+    history: Dict[str, list] = defaultdict(list)
+    best_val_f1 = 0.0
+    best_model_state = None
+    epochs_without_improvement = 0
+    global_epoch = 0
+    early_stopped = False
+
+    print(f"\n{'='*60}")
+    print(f"Swin progressive training: {experiment_name}")
+    print(f"  Phase epochs: {phase_epochs}  LRs: {phase_lrs}")
+    print(f"  Layer-wise decay (phase 3): {layerwise_decay}")
+    print(f"{'='*60}")
+
+    start_time = time.time()
+
+    for phase_idx, (n_epochs, lr) in enumerate(zip(phase_epochs, phase_lrs), start=1):
+        if early_stopped:
+            break
+
+        n_trainable = freeze_swin_for_stage(model, phase_idx)
+
+        if phase_idx == 3:
+            param_groups = get_swin_layerwise_param_groups(
+                model, base_lr=lr, decay=layerwise_decay
+            )
+        else:
+            trainable = [p for p in model.parameters() if p.requires_grad]
+            param_groups = [{"params": trainable, "lr": lr}]
+
+        optimizer = torch.optim.AdamW(param_groups, weight_decay=weight_decay)
+        scheduler = CosineAnnealingLR(optimizer, T_max=n_epochs, eta_min=lr * 0.01)
+
+        print(
+            f"\n--- Phase {phase_idx}: {n_epochs} epochs, "
+            f"base_lr={lr:.0e}, trainable={n_trainable:,} params ---"
+        )
+
+        for phase_epoch in range(1, n_epochs + 1):
+            global_epoch += 1
+
+            model.train()
+            total_loss = 0.0
+            preds_all, labels_all = [], []
+            for images, labels in train_loader:
+                images = images.to(device)
+                labels = labels.to(device)
+                optimizer.zero_grad()
+                outputs = model(images)
+                loss = criterion(outputs, labels)
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                optimizer.step()
+                total_loss += loss.item() * images.size(0)
+                preds_all.extend(outputs.argmax(dim=1).cpu().numpy())
+                labels_all.extend(labels.cpu().numpy())
+            train_loss = total_loss / len(train_loader.dataset)
+            train_acc = accuracy_score(labels_all, preds_all)
+            train_f1 = f1_score(labels_all, preds_all, average="macro")
+
+            model.eval()
+            total_loss = 0.0
+            preds_all, labels_all = [], []
+            with torch.no_grad():
+                for images, labels in val_loader:
+                    images = images.to(device)
+                    labels = labels.to(device)
+                    outputs = model(images)
+                    loss = criterion(outputs, labels)
+                    total_loss += loss.item() * images.size(0)
+                    preds_all.extend(outputs.argmax(dim=1).cpu().numpy())
+                    labels_all.extend(labels.cpu().numpy())
+            val_loss = total_loss / len(val_loader.dataset)
+            val_acc = accuracy_score(labels_all, preds_all)
+            val_f1 = f1_score(labels_all, preds_all, average="macro")
+
+            scheduler.step()
+            current_lr = optimizer.param_groups[0]["lr"]
+
+            history["epoch"].append(global_epoch)
+            history["phase"].append(phase_idx)
+            history["train_loss"].append(train_loss)
+            history["train_acc"].append(train_acc)
+            history["train_f1"].append(train_f1)
+            history["val_loss"].append(val_loss)
+            history["val_acc"].append(val_acc)
+            history["val_f1"].append(val_f1)
+            history["lr"].append(current_lr)
+
+            print(
+                f"P{phase_idx} Epoch {phase_epoch:3d}/{n_epochs} "
+                f"(global {global_epoch:3d}) | "
+                f"Train L: {train_loss:.4f} A: {train_acc:.4f} F1: {train_f1:.4f} | "
+                f"Val L: {val_loss:.4f} A: {val_acc:.4f} F1: {val_f1:.4f} | "
+                f"LR: {current_lr:.2e}"
+            )
+
+            if val_f1 > best_val_f1:
+                best_val_f1 = val_f1
+                best_model_state = copy.deepcopy(model.state_dict())
+                epochs_without_improvement = 0
+                torch.save(
+                    {
+                        "epoch": global_epoch,
+                        "phase": phase_idx,
+                        "model_state_dict": model.state_dict(),
+                        "best_val_f1": best_val_f1,
+                        "experiment_name": experiment_name,
+                    },
+                    os.path.join(save_dir, "best_model.pth"),
+                )
+                print(f"  ** New best val F1: {val_f1:.4f} - model saved **")
+            else:
+                epochs_without_improvement += 1
+                if epochs_without_improvement >= patience:
+                    print(
+                        f"\n  Early stopping at global epoch {global_epoch} "
+                        f"(no improvement for {patience} epochs)"
+                    )
+                    early_stopped = True
+                    break
+
+    if best_model_state is not None:
+        model.load_state_dict(best_model_state)
+
+    total_time = time.time() - start_time
+    print(f"\nSwin progressive training complete in {total_time/60:.1f} minutes")
+    print(f"Best validation F1: {best_val_f1:.4f}")
+
+    df = pd.DataFrame(history)
+    df.to_csv(os.path.join(results_dir, "training_history.csv"), index=False)
+    summary = {
+        "experiment_name": experiment_name,
+        "best_val_f1": best_val_f1,
+        "best_epoch": int(history["epoch"][int(np.argmax(history["val_f1"]))]),
+        "total_epochs": len(history["epoch"]),
+        "final_train_loss": history["train_loss"][-1],
+        "final_val_loss": history["val_loss"][-1],
+        "final_train_acc": history["train_acc"][-1],
+        "final_val_acc": history["val_acc"][-1],
+        "training_strategy": "swin_progressive_3stage",
+        "phase_epochs": list(phase_epochs),
+        "phase_lrs": list(phase_lrs),
+        "layerwise_decay": layerwise_decay,
+    }
+    with open(os.path.join(results_dir, "training_summary.json"), "w") as f:
+        json.dump(summary, f, indent=2)
+
+    return dict(history), best_val_f1
+
+
 def create_criterion(class_weights: torch.Tensor, label_smoothing: float = 0.1, device=DEVICE) -> nn.Module:
     """
     Create a weighted cross-entropy loss with label smoothing.

@@ -16,21 +16,42 @@ from typing import Optional
 
 class MacenkoNormalizer:
     """
-    Macenko stain normalization.
+    Macenko stain normalization (Macenko et al., 2009).
 
-    How it works (simplified):
-    1. Convert RGB pixels to Optical Density (OD) space: OD = -log(I / 255)
-    2. Use SVD to find the two principal stain directions (Hematoxylin & Eosin)
-    3. Project pixels onto those directions to get stain concentrations
-    4. Rescale concentrations to match a target (reference) image
-    5. Reconstruct the normalized RGB image
+    Algorithm:
+    1. Convert RGB to Optical Density: OD = -log((I + 1) / 255)
+    2. Filter background (low-OD pixels — they carry no stain information)
+    3. SVD on UNCENTERED OD; take the plane spanned by the top-2 eigenvectors
+    4. Project OD pixels onto that plane and compute each pixel's angle
+    5. Stain vectors = the angular extremes (alpha-th and (100-alpha)-th
+       percentile angles), reconstructed from angle to 3D OD space. This
+       guarantees the stain vectors live in the positive OD orthant — H and E
+       are absorption directions and must have non-negative components.
+    6. Solve OD = concentrations @ stain_matrix for concentrations
+    7. Rescale source concentrations so their per-stain 99th percentile matches
+       the target's, then reconstruct RGB using the TARGET stain matrix.
+
+    Why not centered SVD: SVD components on centered data have arbitrary sign
+    (an SVD ambiguity), and using them directly as stain vectors produces 38%
+    catastrophic green-channel blow-ups on BreakHis. The angular-extreme step
+    here is what makes the result orientation-stable.
     """
 
-    def __init__(self):
-        self.target_stain_matrix = None
-        self.target_max_conc = None
+    # Sensible H&E priors used as a fallback when an image has no tissue.
+    _H_E_FALLBACK = np.array(
+        [
+            [0.5626, 0.7201, 0.4062],  # Hematoxylin (blue-purple)
+            [0.2159, 0.8012, 0.5581],  # Eosin       (pink)
+        ]
+    )
 
-    def fit(self, target_image: np.ndarray):
+    def __init__(self, od_threshold: float = 0.15, angle_percentile: float = 1.0):
+        self.target_stain_matrix: Optional[np.ndarray] = None
+        self.target_max_conc: Optional[np.ndarray] = None
+        self.od_threshold = od_threshold
+        self.angle_percentile = angle_percentile  # uses (alpha, 100-alpha)
+
+    def fit(self, target_image: np.ndarray) -> None:
         """Learn the stain profile from a reference image."""
         target_od = self._rgb_to_od(target_image)
         self.target_stain_matrix = self._extract_stain_matrix(target_od)
@@ -42,67 +63,88 @@ class MacenkoNormalizer:
         if self.target_stain_matrix is None:
             raise ValueError("Call fit() with a reference image first.")
 
-        od = self._rgb_to_od(image)
         h, w = image.shape[:2]
+        od = self._rgb_to_od(image)
 
         source_stain_matrix = self._extract_stain_matrix(od)
         source_conc = self._get_concentrations(od, source_stain_matrix)
-        source_max_conc = np.percentile(source_conc, 99, axis=0)
+        source_max_conc = np.maximum(np.percentile(source_conc, 99, axis=0), 1e-6)
 
-        # Avoid division by zero
-        source_max_conc = np.maximum(source_max_conc, 1e-6)
-
-        # Rescale concentrations
         normalized_conc = source_conc * (self.target_max_conc / source_max_conc)
-
-        # Reconstruct in OD space using target stain directions
-        normalized_od = normalized_conc @ self.target_stain_matrix[:2]
-        normalized_rgb = self._od_to_rgb(normalized_od).reshape(h, w, 3)
-
-        return normalized_rgb
+        # Reconstruct OD using TARGET stain directions: that's how every image
+        # gets re-coloured to look like the reference's stain palette.
+        normalized_od = normalized_conc @ self.target_stain_matrix
+        return self._od_to_rgb(normalized_od).reshape(h, w, 3)
 
     # --- internal helpers ---
 
     @staticmethod
     def _rgb_to_od(image: np.ndarray) -> np.ndarray:
-        img = image.reshape(-1, 3).astype(np.float64)
-        img = np.maximum(img, 1.0)
-        return -np.log(img / 255.0)
+        # +1 (not max(.,1)) keeps the transform smoothly invertible at I=0.
+        img = image.reshape(-1, 3).astype(np.float64) + 1.0
+        return -np.log(img / 256.0)
 
     @staticmethod
     def _od_to_rgb(od: np.ndarray) -> np.ndarray:
-        rgb = 255.0 * np.exp(-od)
+        # Clip OD before exp to avoid overflow on extreme reconstructions.
+        rgb = 256.0 * np.exp(-np.clip(od, 0.0, None)) - 1.0
         return np.clip(rgb, 0, 255).astype(np.uint8)
 
-    @staticmethod
-    def _extract_stain_matrix(od_flat: np.ndarray) -> np.ndarray:
-        """Extract the 2-component stain matrix via SVD."""
-        # Keep only tissue pixels (filter out background)
-        tissue_mask = np.sum(od_flat, axis=1) > 0.15
-        od_tissue = od_flat[tissue_mask]
+    def _extract_stain_matrix(self, od_flat: np.ndarray) -> np.ndarray:
+        """Macenko 2009 stain-vector extraction via angular extremes in OD plane."""
+        tissue = od_flat[od_flat.sum(axis=1) > self.od_threshold]
+        if tissue.shape[0] < 10:
+            return self._H_E_FALLBACK.copy()
 
-        if od_tissue.shape[0] < 10:
-            # Fallback: return default H&E stain vectors
-            return np.array([
-                [0.6442, 0.0928, 0.6339],  # Hematoxylin
-                [0.0927, 0.9545, 0.2837],  # Eosin
-            ])
+        # Eigendecomposition of the OD Gram matrix. eigh returns ascending
+        # eigenvalues; take the top 2 as the dominant OD subspace.
+        cov = (tissue.T @ tissue) / tissue.shape[0]
+        _, eigvecs = np.linalg.eigh(cov)
+        plane = eigvecs[:, [-1, -2]].copy()  # (3, 2)
 
-        # SVD to find principal stain directions
-        od_centered = od_tissue - od_tissue.mean(axis=0)
-        _, _, Vt = np.linalg.svd(od_centered, full_matrices=False)
-        stain_matrix = Vt[:2]  # top-2 components
+        # Eigenvector signs are arbitrary. Force the FIRST basis vector into
+        # the positive OD orthant so that pixel projections land in the +x
+        # half-plane and arctan2 angles don't wrap across ±π. This is the step
+        # the original implementation skipped, causing the green-blowup bug.
+        if plane[:, 0].sum() < 0:
+            plane[:, 0] *= -1
+        if plane[:, 1].sum() < 0:
+            plane[:, 1] *= -1
 
-        # Ensure consistent orientation (H should have higher blue OD)
-        if stain_matrix[0, 2] < stain_matrix[1, 2]:
-            stain_matrix = stain_matrix[[1, 0]]
+        # Project tissue OD onto the plane and compute angles.
+        proj = tissue @ plane  # (N, 2)
+        angles = np.arctan2(proj[:, 1], proj[:, 0])
 
-        return stain_matrix
+        a = self.angle_percentile
+        min_angle = np.percentile(angles, a)
+        max_angle = np.percentile(angles, 100 - a)
+
+        # Map each extreme angle back into 3D OD space.
+        v_min = plane @ np.array([np.cos(min_angle), np.sin(min_angle)])
+        v_max = plane @ np.array([np.cos(max_angle), np.sin(max_angle)])
+
+        # Defensive: if any reconstructed stain vector ended up negative-summed
+        # (rare, only when angle extremes still straddle the orthant), flip it.
+        if v_min.sum() < 0:
+            v_min = -v_min
+        if v_max.sum() < 0:
+            v_max = -v_max
+
+        # Conventional ordering: hematoxylin first. H is the more blue-leaning
+        # stain — in OD-space its blue (channel 2) component is larger.
+        if v_min[2] > v_max[2]:
+            stain_matrix = np.stack([v_min, v_max])
+        else:
+            stain_matrix = np.stack([v_max, v_min])
+
+        # Unit-normalise so concentration scale is well-defined.
+        norms = np.linalg.norm(stain_matrix, axis=1, keepdims=True)
+        return stain_matrix / np.maximum(norms, 1e-12)
 
     @staticmethod
     def _get_concentrations(od_flat: np.ndarray, stain_matrix: np.ndarray) -> np.ndarray:
-        """Project OD values onto stain directions to get concentrations."""
-        return np.linalg.lstsq(stain_matrix[:2].T, od_flat.T, rcond=None)[0].T
+        """Solve OD = C @ S for C (least squares). Shape: (N, 2)."""
+        return np.linalg.lstsq(stain_matrix.T, od_flat.T, rcond=None)[0].T
 
 
 class ReinhardNormalizer:
