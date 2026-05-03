@@ -249,18 +249,20 @@ results/
 | # | Task | Backbone retrain? | Cost | Status |
 |---:|---|:---:|:---:|---|
 | 1 | Run cell 2.5.5 (v3.7) and capture results | ❌ | ~8 h | pending |
-| 1b | Run cell 2.5.6 (v3.6 5-fold CV) and capture results | ❌ | ~2 h | **cell added 2026-05-04**, ready to run |
-| 2 | Bootstrap CIs on existing test predictions | ❌ | 30 min | not started |
-| 3 | Patient-stratified split (parse `SOB_..-PATIENTID-..` from filenames; `StratifiedGroupKFold`) | ❌ | ~8 h | not started — **reviewer asks** |
-| 4 | 3-seed CV of fusion head | ❌ | ~6 h | not started |
-| 5 | 5-fold CV by patient | ❌ | ~2 days | not started — **reviewer asks** |
-| 6 | McNemar v3.4 vs binary-opt | ❌ | 30 min | not started — **reviewer asks** |
-| 7 | Ablation table extended (+TTA, +finetune, +3-seed ensemble) | ❌ | 2 h | not started — **reviewer asks** |
-| 8 | Reliability diagram for ECE visualisation | ❌ | 30 min | not started |
-| 9 | Comparison table vs prior BreaKHis literature | ❌ | 2 h | not started |
-| 10 | IG sanity checks (model + label randomisation) | ❌ | half day | not started |
-| 11 | Insertion-AUC alongside Deletion-AUC | ❌ | 2 h | not started |
-| — | **Nuclear option:** unfreeze last 2 blocks of Swin/ConvNeXt, train 5 epochs with LDAM loss, re-extract features, retrain v3.4. Frozen-backbone ceiling on Ductal recall is ~88%; SOTA papers (MiSLAS, RIDE) exceed it via finetuning. Conflicts with the "no backbone retraining" convention. | ✓ | ~1 day | optional |
+| 1b | Run cell 2.5.6 (v3.6 5-fold image-level CV) | ❌ | ~2 h | **cell added 2026-05-04**, ready to run |
+| 1c | Run cell 2.5.7 (binary-opt patient-level CV) | ❌ | ~3 h | **cell added 2026-05-04**, ready to run — *reviewer asks* |
+| 1d | Run cell 2.5.8 (v3.6 two-head patient-level CV) | ❌ | ~3 h | **cell added 2026-05-04**, ready to run — *reviewer asks* |
+| 1e | Run cell 2.5.9 (Swin last-block fine-tune ablation) | ✓ (last block) | ~30 min | **cell added 2026-05-04**, ready to run |
+| 1f | Run cell 2.5.10 (McNemar + bootstrap CIs on pooled patient CV) | ❌ | 30 min | **cell added 2026-05-04**, depends on 1c+1d |
+| 1g | Run cell 2.5.11 (confusion matrix + per-class report on pooled v3.6 CV) | ❌ | 15 min | **cell added 2026-05-04**, depends on 1d |
+| 1h | Run cell 2.5.12 (single-backbone + ensemble patient CV) | ❌ | ~30 min | **cell added 2026-05-04**, ready to run — fills baseline rows in Ablation Table 1 |
+| 1i | Run cell 2.5.13 (300-DPI confusion matrix + LaTeX per-class table) | ❌ | <1 min | **cell added 2026-05-04**, depends on 1d |
+| 1j | Run cell 2.5.14 (Ablation Table 1: LaTeX + plain text) | ❌ | <1 min | **cell added 2026-05-04**, aggregates results from 1c-1h |
+| 2 | Reliability diagram for ECE visualisation | ❌ | 30 min | not started |
+| 3 | Comparison table vs prior BreaKHis literature | ❌ | 2 h | not started |
+| 4 | IG sanity checks (model + label randomisation) | ❌ | half day | not started |
+| 5 | Insertion-AUC alongside Deletion-AUC | ❌ | 2 h | not started |
+| — | **Full backbone fine-tune:** unfreeze last 2 blocks of Swin AND ConvNeXt, train 5 epochs with LDAM loss, re-extract features, retrain v3.4/v3.7. Cell 2.5.9 covers the smaller version (Swin last block only). | ✓ | ~1 day | optional |
 
 **Backbones never get retrained for items 1–8.** All work operates on cached frozen-backbone features.
 
@@ -318,3 +320,14 @@ Keep this file under 600 lines so it stays readable.
 - Cell 2.5.5 promoted to **v3.6** — strip v3.5's overengineering: drop cross-attention (#3), drop raw-feature residual (#4), drop split BatchNorm (#5). Keep multi-expert head but **widen experts 64→128** (~65k params each, total ~526k). Keep modulation but **sigmoid-gate** to scale ∈ [0.5, 1.0] (cannot collapse to zero). Replace BatchNorm(512) on subtype trunk with **GroupNorm(32, 512)** — no batch-stat dependency. Forward signature simplified back to `forward(x)` (split BN gone, no labels needed).
 - v3.6 **worked**: test macro F1 = **0.8811** (+1.55 pp vs v3.4 0.8656). Papillary 68→84% (+15.8 pp), Lobular 0%→75% (recovered from v3.5 collapse), Tubular 100%, Ductal stable 88.3%. Bottleneck identified: Ductal ↔ Fibroadenoma confusion (Fibro's τ=1.0 margin of −2.025 was stealing Ductal predictions under uncertainty).
 - Cell 2.5.5 promoted to **v3.7** — three surgical fixes targeting the v3.6 plateau: (1) **τ[Fibroadenoma] = 0.5** (was 1.0) — halves Fibro's margin to −1.012 to break the Ductal-vs-Fibro tie; (2) **Ductal expert hidden 128 → 256** (others stay 128, +65k params) — Ductal has 6× more training samples than rare classes, deserves the capacity; (3) **Hard-sample focal modifier** on LogitAdjustedCE: per-sample loss is multiplied by `1 + 0.5·mask·(1−p_t)²` where `mask = (p_true < 0.7)`. Stops late-epoch drift where early-converged classes (Lobular 95→74%, Papillary) regress because the model loses interest in their already-easy samples.
+- Added **cell 2.5.6 — 5-fold image-level CV for the v3.6 architecture**. Runs `StratifiedKFold(n_splits=5, shuffle=True, seed=42)` on the union of cached `train+val+test` features (1693 samples). Each fold: 80% trainval / 20% test; within trainval, 85/15 train/val. Defines `TwoHeadFusionMLP_v36` inline (uniform `expert_hidden=128`, no Fibro exemption, no hard-focal — pinned to v3.6 exactly so v3.7 edits to cell 2.5.5 don't drift it). Per fold: WeightedRandomSampler(1/√freq), AdamW two-LR groups, 60 epochs warmup+cosine, EMA(0.999), gate>0.970 selection on `0.3·binF1 + 0.7·macroF1`, TTA 10 passes at inference. Saves `results/fusion_mlp_twohead_cv_v36/cv_summary.json` with per-fold + aggregate (mean ± std) metrics and per-class recall. Idempotent.
+- Added **cells 2.5.7–2.5.11** for the reviewer-checklist tasks:
+  - **2.5.7 — Patient-level 5-fold CV for the binary-opt FusionMLP (Variant A).** Same protocol as 2.5.6 but `StratifiedGroupKFold` with `groups = filename.split('-')[2]` (BreaKHis patient ID). Asserts patient disjointness between train/val and test. Saves per-fold metrics and pooled `(y_true, y_pred, malig_score)` `.npy` caches to `results/fusion_mlp_binary_cv_patient/`.
+  - **2.5.8 — Patient-level 5-fold CV for the v3.6 two-head model.** Same architecture/loss/sampler/TTA as cell 2.5.6 but with `StratifiedGroupKFold`. Reuses `TwoHeadFusionMLP_v36` from cell 2.5.6 (or redefines if not in scope). Saves to `results/fusion_mlp_twohead_cv_v36_patient/`. Pooled prediction caches feed cells 2.5.10/2.5.11.
+  - **2.5.9 — Swin last-block fine-tune ablation.** Three-stage idempotent pipeline: (1) unfreeze `swin.layers[-1]` + head, train 5 epochs at LR=1e-5 with class-weighted CE; (2) re-extract Swin features with the fine-tuned backbone (ConvNeXt features stay cached); (3) retrain a v3.6 fusion head 20 epochs on the new features. Saves to `weights/swin_finetuned_lastblock/`, `results/swin_finetuned_lastblock/{train,val,test}_feats.npy`, `weights/fusion_mlp_twohead_v36_finetuned/`, `results/fusion_mlp_twohead_v36_finetuned/test_summary.json`. **This is the only cell that touches a backbone** — it deliberately violates the "no backbone retraining" convention as a reviewer-requested ablation.
+  - **2.5.10 — McNemar + bootstrap CIs on pooled patient-CV predictions.** Loads pooled caches from 2.5.7 and 2.5.8, runs paired McNemar's test on both 8-class and binary predictions (with/without exact based on `b+c<25`), and 1000-resample bootstrap 95% CIs for each model's macro F1, binary F1, AUC. Saves `results/stat_tests_patient_cv/summary.json`.
+  - **2.5.11 — Confusion matrix + classification report on pooled v3.6 patient-CV.** Saves `figures/cv_confusion_matrix_v36.png` (counts + row-normalised side-by-side), `results/fusion_mlp_twohead_cv_v36_patient/classification_report.txt`, and prints the top-10 off-diagonal confusion pairs sorted by count.
+- Added **cells 2.5.12–2.5.14** for paper-ready outputs:
+  - **2.5.12 — Patient-level 5-fold CV for Swin-only, ConvNeXt-only, and weighted Ensemble.** Three baseline rows for Ablation Table 1. Each backbone gets a single `Linear(1024→8)` classifier on its cached features (CE + label smoothing 0.1, WeightedRandomSampler, 30 epochs, max val binary F1 selection). The ensemble is a per-fold-tuned weighted logit average; `w_swin` swept on val binary F1 in 0.01 steps. Saves `results/single_backbone_cv_patient/cv_summary.json` plus pooled prediction caches for each of the three models.
+  - **2.5.13 — Publication-ready figures + LaTeX per-class table.** Generates `figures/cv_confusion_matrix_v36_pub.png` (300 DPI, counts + row-normalised side-by-side), `figures/cv_per_class_f1_v36.png` (per-class recall bar chart with mean ± std error bars, benign/malignant colour-coded). Writes `results/fusion_mlp_twohead_cv_v36_patient/per_class_table.tex` (LaTeX `tabular` with precision/recall/F1/support per class plus macro and weighted aggregates) and the matching `.txt` plain-text version.
+  - **2.5.14 — Ablation Table 1.** Aggregates result files from cells 2.5.6–2.5.12 (single-split test, image-level CV, patient-level CV) into one summary table. Rows: Swin-only, ConvNeXt-only, Logit Ensemble, Binary-opt fusion, Macro-opt fusion, Two-head v3.6, Two-head v3.6 + Swin fine-tune. Columns: Single-split test 8c-F1, Image-CV mean ± std, Patient-CV mean ± std, approximate trainable parameter count. Missing values render as `—`. Writes both `results/ablation_table_1.tex` and `results/ablation_table_1.txt`.
