@@ -106,25 +106,24 @@ Median cross-model heatmap IoU = **0.0513**.
 | v3.3 | 2026-05-04 | v3.1 architecture (ductal_head **removed**). Plus **post-hoc per-class temperature scaling** (Guo et al. 2017 style), 8 temperatures fit on val NLL via LBFGS, applied to test subtype logits before argmax. | BCE + 1.0·LogitAdjustedCE(**τ=1.0 uniform**, **α=1.5/1.0 rare/common**, smoothing 0.05). | gate>0.970 | Targets: Ductal 94-96%, Fibro 91-94%, Mucinous 92-95%, Papillary 82-85%, Macro F1 0.92+. |
 | v3.3.1 | 2026-05-04 | v3.3 architecture unchanged. | v3.3 loss + **τ[Ductal]=0.0** (other 7 classes still τ=1.0). Removes the −0.835 logit-adjustment penalty on Ductal. | gate>0.970 | Targets: Ductal 94-96%, Papillary may dip 89→86%. Net macro +2-3 pp. |
 | v3.4 | 2026-05-04 | v3.3.1 architecture unchanged. | Same loss as v3.3.1. | gate>0.970 | **Sampler:** replaced BalancedBatchSampler with **WeightedRandomSampler weights=1/√freq** (Ductal:Papillary 1:13 → 1:2.4). **Temp cap:** T[Ductal] capped at ≥1.0; temperature scaling globally disabled if it hurts val. **TTA:** 10-pass inference with N(0, 0.01) feature noise, softmax averaged. Targets: Macro F1 0.91+. |
-| **v3.5 (current)** | 2026-05-04 | **5 architecture changes integrated.** **#1 Multi-expert subtype head** — replaces `Linear(256→8)` with 8 expert MLPs (each 512→64→1) + softmax gate; `logit_c = expert_c(.) + 0.1·log(gate_c)`. **#2 Class-wise feature modulation** — learnable 8×512 matrix (init=1s); each expert sees `feat * modulation[c]`. **#3 Cross-attention** binary→subtype (4 heads, embed 256, residual+LN). **#4 Raw-feature residual** — `0.1 · Linear(2048→8)(x)` added to subtype logits. **#5 Decoupled BN** — `bn_sub_common` and `bn_sub_rare` after `fc_sub`; train-time split by class membership (≥2 samples per group required, else fall back to common). | Same as v3.4 (loss, sampler, TTA, temperature scaling). | gate>0.970 | Forward signature now takes `labels=None` (only used for split BN in training). Targets: Ductal 88→94%, Papillary 68→80%, Macro F1 0.92+. |
+| v3.5 | 2026-05-04 | 5 changes integrated: multi-expert head (8×64→1), 8×512 modulation, cross-attn, raw residual, split BN. | Same as v3.4. | gate>0.970 | **Collapsed.** Lobular 95→0% by epoch 13 (split BN got NaN stats from 1-sample rare batches). Test macro 0.859 vs v3.4 0.866 (−0.65 pp). Experts starved at 33k params each (vs v3.4's implicit 98k). |
+| **v3.6 (current)** | 2026-05-04 | Strip v3.5: drop cross-attn / raw residual / split-BN. Keep & fix: **expert_hidden 64→128** (~65k params each), **sigmoid-gated modulation** `0.5+0.5·sigmoid(W[c])` so scale ∈ [0.5, 1.0] (cannot collapse). Replace BN(512) on subtype trunk with **GroupNorm(32, 512)** — no batch-stat dependency, immune to small rare-class counts. | Same as v3.4 (loss, sampler, TTA, temp scaling, two LR groups). | gate>0.970 | Forward signature simplified back to `forward(x)` (no labels). Targets: Ductal 92-94%, Papillary 80-84%, Lobular 80-85%, Macro F1 0.895-0.910. |
 
-### v3.5 hyperparameters (current)
+### v3.6 hyperparameters (current)
 
 ```
-Architecture (5 changes integrated vs v3.4)
+Architecture (minimal vs v3.5; 3 things dropped, 2 fixed, 1 norm replaced)
   shared:    Linear(2048→1024) → BN → ReLU → Dropout(0.5)               h_shared (1024)
   binary:    Linear(1024→256) → BN → ReLU → Dropout(0.5) → Linear(256→1)  hb (256)
   subtype:   Linear(1024→512)
-             → split BN [common-class samples → bn_sub_common,            ← Change 5
-                rare-class samples → bn_sub_rare; eval falls back]
+             → GroupNorm(32, 512)                          [v3.6 fix]
              → ReLU → Dropout(0.5) → SE(512, r=16)
-             → + 0.3 * LayerNorm(Linear(2048→512)(x))   [scaled residual]
-             → ReLU → Dropout(0.5)
-             → cross-attn (Q=hs, K=V=hb, 4 heads, embed 256, residual+LN) ← Change 3
-             → class-wise modulation (8×512, init=1s)                     ← Change 2
-             → multi-expert head: 8 experts (each 512→64→1) + gate (8)    ← Change 1
+             → + 0.3 * LayerNorm(Linear(2048→512)(x))      [scaled residual]
+             → ReLU → Dropout(0.5)                                       hs (512)
+             → modulation = h * (0.5 + 0.5·sigmoid(W[c]))  [v3.6 gate]   ← Change 2
+                W initialised to 0 → sigmoid(0)=0.5 → scale=0.75
+             → multi-expert head: 8 experts (each 512→128→1) + gate(8)   ← Change 1 widened
                 logit_c = expert_c(modulated[c]) + 0.1·log(gate_c)
-             → + 0.1 * Linear(2048→8)(x)               [raw residual]     ← Change 4
 
 Loss      BCE(binary) + 1.0 * LogitAdjustedCE(subtype,
                                               τ=1.0 except Ductal=0.0,
@@ -246,7 +245,7 @@ results/
 
 | # | Task | Backbone retrain? | Cost | Status |
 |---:|---|:---:|:---:|---|
-| 1 | Run cell 2.5.5 (v3.5) and capture results | ❌ | ~8 h | pending |
+| 1 | Run cell 2.5.5 (v3.6) and capture results | ❌ | ~8 h | pending |
 | 2 | Bootstrap CIs on existing test predictions | ❌ | 30 min | not started |
 | 3 | Patient-stratified split (parse `SOB_..-PATIENTID-..` from filenames; `StratifiedGroupKFold`) | ❌ | ~8 h | not started — **reviewer asks** |
 | 4 | 3-seed CV of fusion head | ❌ | ~6 h | not started |
@@ -271,7 +270,7 @@ results/
 - **Selection criteria are task-specific:**
   - Variant A (binary-opt): max val binary F1.
   - Variant B (macro-opt): max val macro F1, gated by val binary F1 > 0.975.
-  - Variant C (v3.5 two-head): 0.3·val binary F1 + 0.7·val macro F1, gated by > 0.970.
+  - Variant C (v3.6 two-head): 0.3·val binary F1 + 0.7·val macro F1, gated by > 0.970.
 - **Test set is touched once per variant.** All hyperparameter and selection decisions are made on validation.
 
 ---
@@ -311,3 +310,5 @@ Keep this file under 600 lines so it stays readable.
 - Cell 2.5.5 promoted to **v3.3.1** — exempt Ductal from logit adjustment (`τ[Ductal]=0.0`, others stay τ=1.0). Removes the −0.835 penalty that was suppressing Ductal recall; Papillary-vs-Ductal margin grows from 1.78 to 2.61 from log-prior alone.
 - Cell 2.5.5 promoted to **v3.4** — three changes for the 0.91+ macro F1 push: (1) replaced BalancedBatchSampler with `WeightedRandomSampler(1/√freq)` so Ductal:Papillary sample ratio is 1:2.4 instead of 1:13; (2) capped per-class temperature `T[Ductal] ≥ 1.0` and added a global "disable if val regresses" gate; (3) test-time augmentation with 10 passes of feature-space Gaussian noise, softmax averaged. Backbone fine-tune ("nuclear option") deferred — conflicts with the no-retraining convention; documented as optional.
 - Cell 2.5.5 promoted to **v3.5** — five architecture changes integrated: (1) multi-expert subtype head with softmax gate replaces `Linear(256→8)`; (2) class-wise feature modulation (8×512 learnable matrix) so each expert sees a class-specific feature view; (3) cross-attention from binary trunk to subtype trunk (4 heads, embed 256, residual+LN); (4) raw-feature residual `0.1·Linear(2048→8)(x)` added to subtype logits; (5) decoupled BatchNorm for common vs rare classes after `fc_sub`. Forward signature now accepts `labels=None` (only used for split BN at train time). Cell 2.5.5 now defines a new `MultiExpertHead` module alongside the rewritten `TwoHeadFusionMLP`.
+- v3.5 **collapsed** in evaluation: Lobular 95→0% recall by epoch 13 (split BN got NaN stats from 1-2-sample rare batches), Ductal 88→86% (modulation could collapse to zero, no lower bound), test macro F1 = 0.859 vs v3.4 0.866 (−0.65 pp). Each expert was starved at ~33k params vs v3.4's implicit ~98k per class.
+- Cell 2.5.5 promoted to **v3.6** — strip v3.5's overengineering: drop cross-attention (#3), drop raw-feature residual (#4), drop split BatchNorm (#5). Keep multi-expert head but **widen experts 64→128** (~65k params each, total ~526k). Keep modulation but **sigmoid-gate** to scale ∈ [0.5, 1.0] (cannot collapse to zero). Replace BatchNorm(512) on subtype trunk with **GroupNorm(32, 512)** — no batch-stat dependency. Forward signature simplified back to `forward(x)` (split BN gone, no labels needed).
