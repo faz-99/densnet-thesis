@@ -87,7 +87,7 @@ Median cross-model heatmap IoU = **0.0513**.
 - Selection: max **val macro F1** gated by val binary F1 > 0.975.
 - Idempotent — skips if checkpoint exists.
 
-### Variant C — `fusion_mlp_twohead/` — IN PROGRESS, currently **v3.3**
+### Variant C — `fusion_mlp_twohead/` — IN PROGRESS, currently **v3.3.1**
 - Cell **2.5.5**.
 - Multi-iteration distinction-tier model. Full evolution in [Two-head evolution](#two-head-evolution).
 - Idempotent **with architecture-mismatch fall-through** — saved state_dict is probed against the current class def; if it doesn't match (e.g. after editing the class), retrain triggers automatically.
@@ -103,9 +103,10 @@ Median cross-model heatmap IoU = **0.0513**.
 | v3 | 2026-05-03 | wider trunk 2048→1024→512 (BN ×2), skip 2048→512 added pre-final-ReLU, subtype head 512→256→8. | BCE + 0.1·Focal, α=0.50/0.25, smoothing 0.05/0.10 | gate>0.975 | First trunk-widening; still single pathway. |
 | v3.1 | 2026-05-04 | **Decoupled trunks** post-shared (binary 256-D / subtype 512-D), **SE block** (r=16) on subtype, **scaled-LN skip** (×0.3), deeper subtype head 512→384→256→8 with progressive dropout 0.2/0.1. | BCE + 1.0·**LogitAdjustedCE** (Menon et al. 2020, τ=1.0, smoothing 0.05). Focal dropped. | gate>**0.970** | Two LR groups (binary 1e-4, other 3e-4). **BalancedBatchSampler** (≥2 rare per batch). |
 | v3.2 | 2026-05-04 | v3.1 + **ductal_head** Linear(512→64)→ReLU→Linear(64→1) added to subtype_logits[:, DUCTAL_IDX]. | v3.1 loss + per-class **τ=2.0/0.5 rare/common** + per-class **α=2.0/1.0 rare/common**. | gate>0.970 | Papillary 68→84%, Lobular 60→85%; **but** Ductal 87→79%, Fibro 94→68%, Mucinous 96→83%. tau_common=0.5 was eating common classes. |
-| **v3.3 (current)** | 2026-05-04 | v3.1 architecture (ductal_head **removed**). Plus **post-hoc per-class temperature scaling** (Guo et al. 2017 style), 8 temperatures fit on val NLL via LBFGS, applied to test subtype logits before argmax. | BCE + 1.0·LogitAdjustedCE(**τ=1.0 uniform**, **α=1.5/1.0 rare/common**, smoothing 0.05). | gate>0.970 | Targets: Ductal 94-96%, Fibro 91-94%, Mucinous 92-95%, Papillary 82-85%, Macro F1 0.92+. |
+| v3.3 | 2026-05-04 | v3.1 architecture (ductal_head **removed**). Plus **post-hoc per-class temperature scaling** (Guo et al. 2017 style), 8 temperatures fit on val NLL via LBFGS, applied to test subtype logits before argmax. | BCE + 1.0·LogitAdjustedCE(**τ=1.0 uniform**, **α=1.5/1.0 rare/common**, smoothing 0.05). | gate>0.970 | Targets: Ductal 94-96%, Fibro 91-94%, Mucinous 92-95%, Papillary 82-85%, Macro F1 0.92+. |
+| **v3.3.1 (current)** | 2026-05-04 | v3.3 architecture unchanged. | v3.3 loss + **τ[Ductal]=0.0** (other 7 classes still τ=1.0). Removes the −0.835 logit-adjustment penalty on Ductal — Ductal should be the default prediction under uncertainty, not penalised. | gate>0.970 | Targets: Ductal 94-96% (was 87.4% in v3.1, 79.3% in v3.2), Papillary may dip 89→86%. Net macro +2-3 pp. |
 
-### v3.3 hyperparameters (current)
+### v3.3.1 hyperparameters (current)
 
 ```
 Architecture
@@ -119,7 +120,8 @@ Architecture
             → Linear(384→256) → ReLU → Dropout(0.1)
             → Linear(256→8)
 
-Loss      BCE(binary) + 1.0 * LogitAdjustedCE(subtype, τ=1.0 uniform,
+Loss      BCE(binary) + 1.0 * LogitAdjustedCE(subtype,
+                                              τ=1.0 except Ductal=0.0,
                                               α=1.5/1.0 rare/common,
                                               smoothing=0.05)
 Sampler   BalancedBatchSampler(min_rare_per_batch=2, rare_threshold=100)
@@ -234,7 +236,7 @@ results/
 
 | # | Task | Backbone retrain? | Cost | Status |
 |---:|---|:---:|:---:|---|
-| 1 | Run cell 2.5.5 (v3.3) and capture results | ❌ | ~8 h | pending |
+| 1 | Run cell 2.5.5 (v3.3.1) and capture results | ❌ | ~8 h | pending |
 | 2 | Bootstrap CIs on existing test predictions | ❌ | 30 min | not started |
 | 3 | Patient-stratified split sensitivity analysis | ❌ | ~8 h | not started |
 | 4 | 3-seed CV of fusion head | ❌ | ~6 h | not started |
@@ -256,7 +258,7 @@ results/
 - **Selection criteria are task-specific:**
   - Variant A (binary-opt): max val binary F1.
   - Variant B (macro-opt): max val macro F1, gated by val binary F1 > 0.975.
-  - Variant C (v3.3 two-head): 0.3·val binary F1 + 0.7·val macro F1, gated by > 0.970.
+  - Variant C (v3.3.1 two-head): 0.3·val binary F1 + 0.7·val macro F1, gated by > 0.970.
 - **Test set is touched once per variant.** All hyperparameter and selection decisions are made on validation.
 
 ---
@@ -293,3 +295,4 @@ Keep this file under 600 lines so it stays readable.
 - v3.2 results showed Papillary +16 pp / Lobular +25 pp gains came at the cost of Ductal −8 pp / Fibroadenoma −26 pp / Mucinous −12 pp regressions.
 - Cell 2.5.5 promoted to **v3.3** — uniform τ=1.0, α=1.5/1.0 (relaxed), **ductal_head removed**, **post-hoc per-class temperature scaling** added (Guo et al. 2017 style, LBFGS-fit on val NLL).
 - Created this `CLAUDE.md`.
+- Cell 2.5.5 promoted to **v3.3.1** — exempt Ductal from logit adjustment (`τ[Ductal]=0.0`, others stay τ=1.0). Removes the −0.835 penalty that was suppressing Ductal recall; Papillary-vs-Ductal margin grows from 1.78 to 2.61 from log-prior alone.
