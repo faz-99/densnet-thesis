@@ -87,3 +87,8 @@ thesis-v1-agent-abdullah/scripts/build_gating_ablation_table.py
 thesis-v1-agent-abdullah/scripts/draw_fusion_diagram.py
 thesis-v1-agent-abdullah/scripts/draw_gate_distribution.py
 thesis-v1-agent-abdullah/scripts/draw_fusion_diagram.py
+thesis-v1-agent-abdullah/scripts/draw_patient_cv_diagram.py
+thesis-v1-agent-abdullah/scripts/draw_selection_metric.py
+thesis-v1-agent-abdullah/scripts/draw_fusion_diagram.py
+thesis-v1-agent-abdullah/scripts/draw_fusion_diagram.py
+thesis-v1-agent-abdullah/scripts/draw_fusion_diagram.py
