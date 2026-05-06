@@ -78,3 +78,9 @@ temp/
 *.mp4
 /thesis writing
 /datatfull
+thesis-v1-agent-abdullah/scripts/draw_reliability_diagram.py
+thesis-v1-agent-abdullah/scripts/draw_sampler_distribution.py
+thesis-v1-agent-abdullah/scripts/draw_loss_curves.py
+thesis-v1-agent-abdullah/scripts/draw_perfold_variance.py
+thesis-v1-agent-abdullah/tables/gating_ablation.tex
+thesis-v1-agent-abdullah/scripts/build_gating_ablation_table.py
