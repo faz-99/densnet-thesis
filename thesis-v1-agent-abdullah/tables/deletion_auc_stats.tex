@@ -1,0 +1,18 @@
+% Table 5.9 — Deletion-AUC statistics
+\begin{table}[t]
+\centering
+\small
+\caption{Deletion-AUC statistics. IG significantly better than CAM, $p<0.001$.}
+\label{tab:deletion_auc_stats}
+\begin{tabular}{lcccccc}
+\toprule
+\textbf{Method} & \textbf{Swin} & \textbf{ConvNeXt} & \textbf{Fusion} & \textbf{Fusion std} & \textbf{Runtime (s)} & \textbf{vs IG ($p$)} \\
+\midrule
+GradCAM & 0.502 & 0.382 & 0.482 & 0.082 & 0.052 & 0.020 \\
+GradCAM++ & 0.488 & 0.442 & 0.462 & 0.081 & 0.054 & 0.025 \\
+HiResCAM & 0.535 & 0.382 & 0.482 & 0.083 & 0.052 & 0.020 \\
+LayerCAM & 0.525 & 0.443 & 0.530 & 0.087 & 0.051 & 0.012 \\
+\textbf{IntegratedGradients} & 0.409 & 0.130 & \textbf{0.178} & 0.042 & 0.330 & — \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,0 +1,21 @@
+% Table 5.6 — Loss / sampler ablation
+\begin{table}[t]
+\centering
+\small
+\caption{Loss and sampler ablation. BCE+CE\_LS $\lambda=1.0$, $\varepsilon=0.05$, $\sqrt{}$ sampler optimal.}
+\label{tab:loss_sampler_ablation}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Loss / sampler configuration} & \textbf{Macro-F1} & \textbf{Std} \\
+\midrule
+CE only ($\lambda=0$, no BCE) & 0.8211 & 0.1599 \\
+BCE only (binary expert active alone) & 0.4920 & 0.0410 \\
+BCE + Focal CE ($\gamma=2$, $\alpha=0.25$) & 0.8127 & 0.1011 \\
+BCE + CE ($\varepsilon=0$, no smoothing) & 0.8260 & 0.0991 \\
+BCE + CE + LS ($\varepsilon=0.05$) & 0.8294 & 0.0921 \\
+\textbf{BCE + CE + LS ($\varepsilon=0.05$), $\sqrt{}$ sampler} & 0.8352 & 0.0876 \\
+Above + uniform sampler & 0.7986 & 0.1247 \\
+Above + class-balanced sampler & 0.8203 & 0.0945 \\
+\bottomrule
+\end{tabular}
+\end{table}

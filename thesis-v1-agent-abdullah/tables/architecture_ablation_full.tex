@@ -1,0 +1,18 @@
+% Table 5.5 — Architecture ablation full
+\begin{table}[t]
+\centering
+\small
+\caption{Architecture ablation under patient-CV. Learned gate achieves highest mean 0.8352 and lowest std 0.0876.}
+\label{tab:architecture_ablation_full}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Variant} & \textbf{Macro-F1 mean} & \textbf{Std} & \textbf{Params} & \textbf{Gate weights} \\
+\midrule
+No gate (feature ensemble baseline) & 0.8211 & 0.1599 & 562 K & — \\
+Hard gate (argmax routing on v3.6 experts) & 0.7959 & 0.0932 & 4.27 M & $\in\{0,1\}$ \\
+Soft average ($w_\mathrm{bin}{=}w_\mathrm{8c}{=}0.5$) & 0.8129 & 0.0923 & 4.27 M & $0.5$ \\
+Two experts, no gate (logit avg.) & 0.8054 & 0.1142 & 4.13 M & $0.5$ \\
+\textbf{Learned gate (v3.6, final)} & 0.8352 & 0.0876 & 4.27 M & data-dep. \\
+\bottomrule
+\end{tabular}
+\end{table}

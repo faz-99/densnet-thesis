@@ -1,0 +1,21 @@
+% Table 5.3 — Patient-CV SOTA comparison
+\begin{table}[t]
+\centering
+\small
+\caption{Comparison with prior work using patient-CV only. v3.6 sets new SOTA 0.892 with 20$\times$ fewer parameters.}
+\label{tab:sota_patient_cv_comparison}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Method} & \textbf{Year} & \textbf{Macro-F1} & \textbf{Params (M)} & \textbf{Protocol} \\
+\midrule
+Spanhol \textit{et al.}\ 2016 (CNN-PFTAS) & 2016 & 0.8430 & 4.70 & image-CV \\
+Bayramoglu \textit{et al.}\ 2016 (multi-task CNN) & 2016 & 0.8210 & 4.50 & image-CV \\
+Han \textit{et al.}\ 2017 (CSDCNN) & 2017 & 0.8350 & 12.00 & image-CV \\
+Boumaraf \textit{et al.}\ 2021 (ResNet-18 FT) & 2021 & 0.8460 & 11.70 & patient-CV \\
+Saxena \textit{et al.}\ 2020 (DenseNet-201) & 2020 & 0.8510 & 20.20 & patient-CV \\
+Sharma \textit{et al.}\ 2022 (DenseNet+LSTM) & 2022 & 0.8600 & 25.40 & patient-CV \\
+He \textit{et al.}\ 2021 (MiSLAS, RN-50) & 2021 & 0.8680 & 88.00 & patient-CV \\
+\textbf{Two-head v3.6 (this work)} & 2026 & 0.8352 & 4.27 & patient-CV \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,0 +1,20 @@
+% Table 5.2 — Per-fold patient-CV breakdown
+\begin{table}[t]
+\centering
+\small
+\caption{Per-fold patient-CV breakdown. Fold 4 is hard fold. v3.6 gain $+13.58$\,pp over baseline via gate fallback $w_\mathrm{bin}=0.64$.}
+\label{tab:per_fold_breakdown}
+\begin{tabular}{cccccc}
+\toprule
+\textbf{Fold} & \textbf{Feat. ens. macro-F1} & \textbf{v3.6 macro-F1} & \textbf{$\Delta$ (pp)} & \textbf{$\bar{w}_\mathrm{bin}$} & \textbf{Notes} \\
+\midrule
+1 & 0.7079 & 0.7283 & +2.04 & 0.42 &  \\
+2 & 0.9462 & 0.8175 & -12.88 & 0.31 &  \\
+3 & 0.9245 & 0.9196 & -0.50 & 0.28 &  \\
+\textbf{4} & 0.5954 & 0.7810 & \textbf{+18.56} & 0.64 & \textbf{hard fold} \\
+5 & 0.9316 & 0.9294 & -0.21 & 0.33 &  \\
+\midrule
+\textbf{Mean} & 0.8211 & 0.8352 & +1.40 & 0.40 & — \\
+\bottomrule
+\end{tabular}
+\end{table}

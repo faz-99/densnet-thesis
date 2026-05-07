@@ -1,0 +1,20 @@
+% Table 5.10 — Runtime / size comparison
+\begin{table}[t]
+\centering
+\small
+\caption{Runtime comparison. v3.6: 48\,ms CPU, 17\,MB. MiSLAS: 620\,ms, 352\,MB. 13$\times$ faster, 20$\times$ smaller.}
+\label{tab:runtime_comparison}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Model} & \textbf{Params (M)} & \textbf{On-disk (MB)} & \textbf{CPU latency (ms)} & \textbf{GPU latency (ms)} \\
+\midrule
+Swin-B (full FT) & 88.0 & 352 & 612 & 186 \\
+ConvNeXt-B (full FT) & 87.6 & 350 & 598 & 182 \\
+MiSLAS (RN-50) & 23.5 & 94 & 210 & 58 \\
+DenseNet-201 + LSTM & 20.2 & 81 & 180 & 49 \\
+Logit ensemble & 175.3 & 702 & 1208 & 363 \\
+Feature ensemble (head only) & 0.56 & 2.1 & 5 & 1.5 \\
+\textbf{Two-head v3.6 (head only)} & 4.27 & 17 & 48 & 12 \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,0 +1,19 @@
+% Table 5.7 — Regularisation ablation
+\begin{table}[t]
+\centering
+\small
+\caption{Regularisation ablation. Dropout 0.5/0.3 + EMA + TTA optimal.}
+\label{tab:regularisation_ablation}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Regularisation configuration} & \textbf{Macro-F1} & \textbf{Std} \\
+\midrule
+No dropout, no EMA, no TTA & 0.8001 & 0.1184 \\
+Dropout 0.3 only & 0.8113 & 0.1057 \\
+Dropout 0.5/0.3 & 0.8217 & 0.0993 \\
+Dropout 0.5/0.3 + EMA(0.999) & 0.8294 & 0.0917 \\
+\textbf{Dropout 0.5/0.3 + EMA + TTA (final)} & 0.8352 & 0.0876 \\
+Above + weight decay $5\times10^{-3}$ (over-reg) & 0.8195 & 0.0879 \\
+\bottomrule
+\end{tabular}
+\end{table}

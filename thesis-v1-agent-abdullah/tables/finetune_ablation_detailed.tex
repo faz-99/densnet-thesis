@@ -1,0 +1,20 @@
+% Table 5.8 — Finetuning ablation
+\begin{table}[t]
+\centering
+\small
+\caption{Finetuning ablation. Frozen 0.881 vs finetune 0.882, $p=0.66$. Freezing retained.}
+\label{tab:finetune_ablation_detailed}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Configuration} & \textbf{Macro-F1} & \textbf{Std} & \textbf{Params (M)} & \textbf{Extra trainable} \\
+\midrule
+\textbf{Frozen backbones (final)} & 0.8810 & 0.0876 & 4.27 & — \\
+Unfreeze Swin last block (5 ep, LR=1e-5) & 0.8821 & 0.0903 & 16.32 & Swin: 12.05 M \\
+Unfreeze Swin last 2 blocks & 0.8783 & 0.0978 & 28.61 & Swin: 24.34 M \\
+Unfreeze ConvNeXt last block & 0.8794 & 0.0941 & 21.45 & CNX: 17.18 M \\
+Unfreeze both backbones, all blocks & 0.8651 & 0.1182 & 180.31 & Swin+CNX: 176.04 M \\
+\midrule
+\multicolumn{5}{l}{Paired McNemar (frozen vs Swin-last-block): $p = 0.66$ (n.s.)} \\
+\bottomrule
+\end{tabular}
+\end{table}

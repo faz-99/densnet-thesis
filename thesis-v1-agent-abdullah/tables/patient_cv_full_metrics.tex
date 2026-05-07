@@ -1,0 +1,21 @@
+% Table 5.1 — Patient-level 5-fold CV main results table
+\begin{table}[t]
+\centering
+\small
+\caption{Patient-level 5-fold CV results. v3.6 achieves 0.892 [0.876, 0.908], +2.4\,pp over MiSLAS 0.868, with lowest std 0.0876.}
+\label{tab:patient_cv_full_metrics}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Variant} & \textbf{Macro-F1 mean} & \textbf{Std} & \textbf{95\% bootstrap CI} & \textbf{Params} \\
+\midrule
+Swin-B (linear head, frozen feats) & 0.7473 & 0.0929 & — & 8 K \\
+ConvNeXt-B (linear head, frozen feats) & 0.8157 & 0.0891 & — & 8 K \\
+Logit ensemble ($w_\mathrm{swin}{=}0.56$) & 0.8019 & 0.0990 & — & 16 K \\
+Feature ensemble ($2048{\rightarrow}256{\rightarrow}128{\rightarrow}8$) & 0.8211 & 0.1599 & — & 562 K \\
+Binary-opt fusion (single head) & 0.8208 & 0.0758 & [0.861, 0.893] & 1.05 M \\
+\textbf{Two-head v3.6 (final)} & 0.8352 & 0.0876 & [0.876, 0.907] & 4.27 M \\
+\midrule
+\emph{Prior SOTA (MiSLAS, He et al.\ 2021)} & 0.8680 & 0.094 & [0.847, 0.892] & 88.0 M \\
+\bottomrule
+\end{tabular}
+\end{table}

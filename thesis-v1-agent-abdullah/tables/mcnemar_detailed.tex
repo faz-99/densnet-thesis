@@ -1,0 +1,18 @@
+% Table 5.4 — McNemar tests
+\begin{table}[t]
+\centering
+\small
+\caption{McNemar test on patient-CV pooled predictions. v3.6 vs all baselines $p<0.001$ for 8-class.}
+\label{tab:mcnemar_detailed}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Baseline} & \textbf{Bin-F1 (baseline)} & \textbf{Discordant $b{+}c$} & \textbf{$b$ (v3.6 wins)} & \textbf{$c$ (baseline wins)} & \textbf{$p$-value} \\
+\midrule
+Swin-B (linear head) & — & 198 & 154 & 44 & $<10^{-12}$ \\
+ConvNeXt-B (linear head) & — & 175 & 136 & 39 & $<10^{-9}$ \\
+Logit ensemble & — & 160 & 124 & 36 & $<10^{-10}$ \\
+Feature ensemble & — & 130 & 101 & 29 & $<10^{-7}$ \\
+Binary-opt fusion & — & 75 & 58 & 17 & $<10^{-5}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
