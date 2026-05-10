@@ -227,25 +227,63 @@ Methodology Section 3.5 / Section 4.3.
 
 ## Figures generated
 
-In `figures/`. Diagrammatic figures regenerable from `scripts/draw_*.py`.
+In `figures/`. Diagrammatic figures regenerable from `scripts/draw_*.py`. Chapter-5 result figures regenerable from `scripts/build_chapter5_figures.py`.
 
-### Dataset/EDA chapter
-`class_distribution.png`, `sample_images.png`, `image_statistics.png`, `augmentation_examples.png`, `stain_normalization_comparison.png` (dropped from final thesis).
+### Dataset / EDA chapter
+- `class_distribution.png`, `sample_images.png`, `image_statistics.png`, `augmentation_examples.png`.
+- `patient_cv_diagram.png` — schematic of patient-disjoint 5-fold CV.
+- `sampler_distribution.png` — `1/√f_c` weighted-sampler effective probability.
+- `stain_normalization_comparison.png` — appendix only (stain section dropped from final thesis).
 
 ### Methodology chapter
 - `methodology_overview.png` — Figure 3.1 pipeline overview.
 - `architecture_comparison.png` — Figure 3.2 ConvNeXt vs Swin block stacks.
 - `swin_progressive_unfreezing.png` — Figure 3.3 three-phase schedule.
-- `fusion_architecture_diagram.png` — Figure 3.4 late-fusion block diagram.
+- `fusion_architecture_diagram.png` — Figure 3.4 v3.6 two-head fusion block diagram.
+- `selection_metric.png` — selection-criterion landscape (`0.3·bin + 0.7·macro`, gate > 0.970).
 - `model_parameter_comparison.png`, `lr_schedule.png` — supplementary.
 
-### Results chapter
-`learning_curves_loss.png`, `learning_curves_accuracy.png`, `confusion_8class_per_model.png`, `ensemble_swin_none_x_convnext_none_weight_sweep.png`, `ensemble_swin_none_x_convnext_none_confusion_binary.png`, `ensemble_swin_none_x_convnext_none_roc.png`, `ensemble_fixes_matrix.png`. (`ablation_study_comparison.png` dropped — stain section removed.)
+### Results chapter (single split)
+`learning_curves_loss.png`, `learning_curves_accuracy.png`, `loss_curves.png`, `confusion_8class_per_model.png`, `ensemble_swin_none_x_convnext_none_weight_sweep.png`, `ensemble_swin_none_x_convnext_none_confusion_binary.png`, `ensemble_swin_none_x_convnext_none_roc.png`, `ensemble_fixes_matrix.png`, `reliability_diagram_v36.png`, `params_vs_f1.png`, `ablation_barplot.png`. (`ablation_study_comparison.png` dropped — stain section removed.)
+
+### Results chapter (cross-validation, v3.6)
+- `cv_confusion_matrix_v36.png`, `cv_confusion_matrix_v36_pub.png` (300 DPI) — pooled patient-CV confusion matrices.
+- `cv_per_class_f1_v36.png` — per-class recall bars with mean ± std error bars.
+- `perfold_macro_f1_v36_vs_featens.png` — paired per-fold macro F1, v3.6 vs feature ensemble.
+- `bootstrap_distributions.png` — bootstrap distributions for the pooled metrics.
+
+### Gating / expert-head ablation (v3.6)
+`gate_distribution.png`, `gate_correlation.png`, `gate_entropy_by_fold.png`.
 
 ### XAI chapter
-`xai_comparison_grid.png`, `faithfulness_deletion.png`, `faithfulness_deletion_3methods.png`, `fig_4_1_spatial_complementarity.png`, `fig_4_2_xai_summary.png`, `fig_4_3_xai_benchmark.png`, `heatmap_iou_histogram.png`.
+`xai_comparison_grid.png`, `faithfulness_deletion.png`, `faithfulness_deletion_3methods.png`, `fig_4_1_spatial_complementarity.png`, `fig_4_2_xai_summary.png`, `fig_4_3_xai_benchmark.png`, `heatmap_iou_histogram.png`, `iou_histogram.png`, `ig_8class_grid.png`, `backbone_attribution_comparison.png`, `deletion_auc_boxplot.png`.
 
-Diagram-rendering scripts: `scripts/draw_methodology_overview.py`, `scripts/draw_architecture_comparison.py`, `scripts/draw_swin_progressive.py`, `scripts/draw_fusion_diagram.py`.
+### Diagram-rendering scripts
+`scripts/draw_methodology_overview.py`, `scripts/draw_architecture_comparison.py`, `scripts/draw_swin_progressive.py`, `scripts/draw_fusion_diagram.py`, `scripts/draw_patient_cv_diagram.py`, `scripts/draw_sampler_distribution.py`, `scripts/draw_selection_metric.py`, `scripts/draw_loss_curves.py`, `scripts/draw_perfold_variance.py`, `scripts/draw_reliability_diagram.py`, `scripts/draw_gate_distribution.py`.
+
+### Aggregator scripts
+`scripts/build_chapter5_figures.py`, `scripts/build_chapter5_tables.py`, `scripts/build_gating_ablation_table.py`.
+
+---
+
+## Tables (LaTeX) — `tables/`
+
+Built by `scripts/build_chapter5_tables.py` (and `build_gating_ablation_table.py` for the gating row). All `.tex` files are `tabular` fragments ready to `\input{}`.
+
+| File | Section | Purpose |
+|---|---|---|
+| `architecture_ablation_full.tex` | Chap 5 ablation | Full architecture-component ablation |
+| `loss_sampler_ablation.tex` | Chap 5 ablation | Loss × sampler grid |
+| `regularisation_ablation.tex` | Chap 5 ablation | Dropout / weight-decay / smoothing sweep |
+| `gating_ablation.tex` (+ `.txt`) | Chap 5 ablation | Multi-expert gate-on/gate-off sweep |
+| `finetune_ablation_detailed.tex` | Chap 5 ablation | Swin last-block FT vs frozen, per-class |
+| `per_fold_breakdown.tex` | Chap 5 results | v3.6 per-fold metrics (patient-CV) |
+| `patient_cv_full_metrics.tex` | Chap 5 results | All variants × patient-CV metrics |
+| `mcnemar_detailed.tex` | Chap 5 stats | McNemar 8-class + binary contingency, p-values |
+| `deletion_auc_stats.tex` | XAI chapter | Per-method × per-model AUC-DEL with CIs |
+| `runtime_comparison.tex` | Discussion | Runtime / params / FLOPs across variants |
+| `sota_patient_cv_comparison.tex` | Discussion | This-thesis vs prior BreaKHis literature (patient-CV) |
+| `results/fusion_mlp_twohead_cv_v36_patient/per_class_table.tex` | Chap 5 results | v3.6 per-class precision/recall/F1/support |
 
 ---
 
@@ -253,21 +291,31 @@ Diagram-rendering scripts: `scripts/draw_methodology_overview.py`, `scripts/draw
 
 ```
 weights/
-  convnext_none/best_model.pth          ← fine-tuned ConvNeXt (frozen)
-  swin_none/best_model.pth              ← fine-tuned Swin (frozen)
-  convnext_macenko/, swin_macenko/, …   ← stain ablation (out of scope)
-  fusion_mlp/best_model.pth             ← Variant A (binary-opt)
-  fusion_mlp_macro/best_model.pth       ← Variant B (macro-opt)
-  fusion_mlp_twohead/                   ← Variant C — currently empty (cleared for v3.3 retrain)
+  convnext_none/best_model.pth                    ← fine-tuned ConvNeXt (frozen)
+  swin_none/best_model.pth                        ← fine-tuned Swin (frozen)
+  convnext_macenko/, swin_macenko/, …             ← stain ablation (out of scope)
+  fusion_mlp/best_model.pth                       ← Variant A (binary-opt)
+  fusion_mlp_macro/best_model.pth                 ← Variant B (macro-opt)
+  fusion_mlp_twohead/                             ← Variant C (v3.7 head — cell 2.5.5)
+  swin_finetuned_lastblock/                       ← Swin last-block FT ablation (cell 2.5.9)
+  fusion_mlp_twohead_v36_finetuned/               ← v3.6 head on FT-Swin features (cell 2.5.9)
 
 results/
-  features/                             ← cached frozen-backbone features
-  ensemble_swin_none_x_convnext_none/   ← logit ensemble outputs
-  feature_ensemble_swin_none_x_convnext_none/ ← Variant A test outputs
-  fusion_mlp_macro/                     ← Variant B test outputs
-  fusion_mlp_twohead/                   ← Variant C test outputs (will refresh on next run)
-  xai/                                  ← deletion-AUC arrays, IoU arrays, case indices
-  table_4_1.json, table_4_1_extended.csv, table_4_2.json
+  features/                                       ← cached frozen-backbone features (1693 × 2048)
+  ensemble_swin_none_x_convnext_none/             ← logit ensemble outputs (single split)
+  feature_ensemble_swin_none_x_convnext_none/     ← Variant A test outputs (single split)
+  fusion_mlp_macro/                               ← Variant B test outputs
+  fusion_mlp_twohead/                             ← Variant C test outputs
+  fusion_mlp_twohead_cv_v36/                      ← v3.6 image-CV (cell 2.5.6)
+  fusion_mlp_twohead_cv_v36_patient/              ← v3.6 patient-CV — HEADLINE (cell 2.5.8)
+  fusion_mlp_binary_cv_image/, fusion_mlp_binary_cv_patient/   ← Variant A CVs (cells 2.5.16, 2.5.7)
+  feature_ensemble_cv_image/, feature_ensemble_cv_patient/     ← FeatureEnsembleMLP CVs (cell 2.5.17)
+  single_backbone_cv_image/, single_backbone_cv_patient/       ← Swin/ConvNeXt/logit-ens CVs (cells 2.5.15, 2.5.12)
+  swin_finetuned_lastblock/                       ← Swin FT features + intermediate stats
+  fusion_mlp_twohead_v36_finetuned/test_summary.json ← FT-Swin + v3.6 head test (8c-F1 = 0.8816)
+  stat_tests_patient_cv/summary.json              ← McNemar + bootstrap CIs on pooled patient-CV
+  xai/                                            ← deletion-AUC arrays, IoU arrays, case indices
+  table_4_1.json, table_4_1_extended.csv, table_4_2.json, ablation_table_1.{tex,txt}
 ```
 
 ---
@@ -338,7 +386,7 @@ Keep this file under 600 lines so it stays readable.
 - v3.5 **collapsed** in evaluation: Lobular 95→0% recall by epoch 13 (split BN got NaN stats from 1-2-sample rare batches), Ductal 88→86% (modulation could collapse to zero, no lower bound), test macro F1 = 0.859 vs v3.4 0.866 (−0.65 pp). Each expert was starved at ~33k params vs v3.4's implicit ~98k per class.
 - Cell 2.5.5 promoted to **v3.6** — strip v3.5's overengineering: drop cross-attention (#3), drop raw-feature residual (#4), drop split BatchNorm (#5). Keep multi-expert head but **widen experts 64→128** (~65k params each, total ~526k). Keep modulation but **sigmoid-gate** to scale ∈ [0.5, 1.0] (cannot collapse to zero). Replace BatchNorm(512) on subtype trunk with **GroupNorm(32, 512)** — no batch-stat dependency. Forward signature simplified back to `forward(x)` (split BN gone, no labels needed).
 - v3.6 **worked**: test macro F1 = **0.8811** (+1.55 pp vs v3.4 0.8656). Papillary 68→84% (+15.8 pp), Lobular 0%→75% (recovered from v3.5 collapse), Tubular 100%, Ductal stable 88.3%. Bottleneck identified: Ductal ↔ Fibroadenoma confusion (Fibro's τ=1.0 margin of −2.025 was stealing Ductal predictions under uncertainty).
-- Cell 2.5.5 promoted to **v3.7** — three surgical fixes targeting the v3.6 plateau: (1) **τ[Fibroadenoma] = 0.5** (was 1.0) — halves Fibro's margin to −1.012 to break the Ductal-vs-Fibro tie; (2) **Ductal expert hidden 128 → 256** (others stay 128, +65k params) — Ductal has 6× more training samples than rare classes, deserves the capacity; (3) **Hard-sample focal modifier** on LogitAdjustedCE: per-sample loss is multiplied by `1 + 0.5·mask·(1−p_t)²` where `mask = (p_true < 0.7)`. Stops late-epoch drift where early-converged classes (Lobular 95→74%, Papillary) regress because the model loses interest in their already-easy samples.
+- Cell 2.5.5 promoted to **v3.7** — three surgical fixes targeting the v3.6 plateau: (1) **τ[Fibroadenoma] = 0.5** (was 1.0) — halves Fibro's margin to −1.012 to break the Ductal-vs-Fibro tie; (2) **Ductal expert hidden 128 → 256** (others stay 128, +65k params) — Ductal has 6× more training samples than rare classes, deserves the capacity; (3) **Hard-sample focal modifier** on LogitAdjustedCE: per-sample loss is multiplied by `1 + 0.5·mask·(1−p_t)²` where `mask = (p_true < 0.7)`. Stops late-epoch drift where early-converged classes (Lobular 95→74%, Papillary) regress because the model loses interest in their already-easy samples. **Note (2026-05-10):** v3.7 has not been run end-to-end since promotion; v3.6 remains the production model and the headline numbers in the thesis.
 - Added **cell 2.5.6 — 5-fold image-level CV for the v3.6 architecture**. Runs `StratifiedKFold(n_splits=5, shuffle=True, seed=42)` on the union of cached `train+val+test` features (1693 samples). Each fold: 80% trainval / 20% test; within trainval, 85/15 train/val. Defines `TwoHeadFusionMLP_v36` inline (uniform `expert_hidden=128`, no Fibro exemption, no hard-focal — pinned to v3.6 exactly so v3.7 edits to cell 2.5.5 don't drift it). Per fold: WeightedRandomSampler(1/√freq), AdamW two-LR groups, 60 epochs warmup+cosine, EMA(0.999), gate>0.970 selection on `0.3·binF1 + 0.7·macroF1`, TTA 10 passes at inference. Saves `results/fusion_mlp_twohead_cv_v36/cv_summary.json` with per-fold + aggregate (mean ± std) metrics and per-class recall. Idempotent.
 - Added **cells 2.5.7–2.5.11** for the reviewer-checklist tasks:
   - **2.5.7 — Patient-level 5-fold CV for the binary-opt FusionMLP (Variant A).** Same protocol as 2.5.6 but `StratifiedGroupKFold` with `groups = filename.split('-')[2]` (BreaKHis patient ID). Asserts patient disjointness between train/val and test. Saves per-fold metrics and pooled `(y_true, y_pred, malig_score)` `.npy` caches to `results/fusion_mlp_binary_cv_patient/`.
@@ -354,3 +402,7 @@ Keep this file under 600 lines so it stays readable.
   - **2.5.15 — Image-level 5-fold CV for Swin / ConvNeXt / weighted Ensemble.** Mirror of cell 2.5.12 (patient-CV) but with `StratifiedKFold` instead of `StratifiedGroupKFold`. Same `Linear(1024→8)` heads, same protocol (CE + smoothing 0.1, WeightedRandomSampler, 30 epochs, max val binary F1 selection). `w_swin` swept per fold on val. Saves `results/single_backbone_cv_image/cv_summary.json` with separate keys for `swin`, `convnext`, `ensemble`, plus pooled prediction caches.
   - **2.5.16 — Image-level 5-fold CV for the Binary-opt fusion.** Mirror of cell 2.5.7 (patient-CV) with `StratifiedKFold`. Uses `FusionMLP_v1` (2048→512→8 with class-weighted CE, max val binary F1, 50 epochs). Saves to `results/fusion_mlp_binary_cv_image/`.
   - **2.5.17 — Feature ensemble baseline (deeper MLP) — image-CV + patient-CV combined cell.** Defines a separate `FeatureEnsembleMLP` (2048→256→128→8 with Dropout(0.3), plain CE + label smoothing 0.1, **no class weights**, **no class-balanced sampler**, max val 8-class F1 selection). Runs both protocols sequentially: `StratifiedKFold` for image-CV, `StratifiedGroupKFold` for patient-CV. Saves to `results/feature_ensemble_cv_image/` and `results/feature_ensemble_cv_patient/`. This is the "naive deep fusion" baseline distinct from the binary-opt FusionMLP — both rows in Ablation Table 1.
+
+### 2026-05-10
+- **CLAUDE.md sync.** Reconciled the file with on-disk state after 6 days of un-logged work. Updated Outstanding-work table (cells 2.5.6–2.5.17 collapsed from "ready to run" to **done**; reliability diagram and SOTA comparison table likewise marked done; v3.7 promoted to the only open algorithmic item). Refreshed Figures-generated section to include the 16 new figures from May 7 (CV confusion matrices, per-class F1, gating ablation triplet, reliability diagram, params-vs-F1, sampler distribution, patient-CV diagram, IG 8-class grid, deletion-AUC boxplot, IoU histogram, bootstrap distributions, backbone attribution comparison, ablation barplot, loss curves, perfold variance, selection metric). Added new **Tables (LaTeX)** section listing the 11 `.tex` fragments under `tables/` plus the per-class table generated by cell 2.5.13. Added new aggregator scripts (`build_chapter5_figures.py`, `build_chapter5_tables.py`, `build_gating_ablation_table.py`) and the May-7 diagram scripts to the script inventory. Refreshed the Artefacts-on-disk tree to include all CV result directories, `swin_finetuned_lastblock/`, `fusion_mlp_twohead_v36_finetuned/`, and `stat_tests_patient_cv/`.
+- **Headline numbers surfaced.** Patient-CV v3.6 = **8c-F1 0.835 ± 0.088, bin-F1 0.978 ± 0.016, AUC 0.990 ± 0.006**; pooled bootstrap 95 % CI = [0.876, 0.907] for 8c-F1. McNemar 8-class **p = 8.6e−5** (v3.6 beats binary-opt fusion); McNemar binary p = 0.405 (n.s.) — the gain is in subtype distinction, not malignancy call. v3.6 + Swin last-block FT = **8c-F1 0.8816** on the single split. **v3.6 confirmed as the production two-head model for the thesis** until/unless v3.7 is run.
