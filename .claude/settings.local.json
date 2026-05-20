@@ -12,7 +12,8 @@
       "Bash(.venv/bin/python fix_toc.py)",
       "Bash(.venv/bin/python fix_more_tables.py)",
       "Bash(.venv/bin/python fix_lof_lot.py)",
-      "Bash(.venv/bin/python add_sota_section.py)"
+      "Bash(.venv/bin/python add_sota_section.py)",
+      "Bash(.venv/bin/python -m pip install --quiet python-pptx)"
     ]
   }
 }
