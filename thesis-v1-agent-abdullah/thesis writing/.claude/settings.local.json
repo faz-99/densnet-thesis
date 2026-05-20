@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c \"import docx; print\\(docx.__version__\\)\")",
+      "Bash(python3 -c \"from docx import Document; print\\('ok'\\)\")",
+      "Bash(pip install *)",
+      "Bash(python3 *)",
+      "WebSearch"
+    ]
+  }
+}
