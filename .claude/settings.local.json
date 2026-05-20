@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/bin/python -c \"import docx; print\\(docx.__version__\\)\")",
+      "Bash(.venv/bin/python)"
+    ]
+  }
+}
