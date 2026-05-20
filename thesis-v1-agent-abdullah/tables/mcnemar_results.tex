@@ -1,0 +1,18 @@
+% Table 3.4 — McNemar test (methodology summary)
+\begin{table}[t]
+\centering
+\small
+\caption{McNemar's paired test of v3.6 against each baseline on pooled patient-CV predictions ($n=1693$). All $p<10^{-3}$ for the 8-class decision.}
+\label{tab:mcnemar_results}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Baseline} & \textbf{Discordant $b{+}c$} & \textbf{$b$ (v3.6 wins)} & \textbf{$c$ (baseline wins)} & \textbf{$p$-value} \\
+\midrule
+Swin-B (linear head)        & 198 & 154 & 44 & $<10^{-12}$ \\
+ConvNeXt-B (linear head)    & 175 & 136 & 39 & $<10^{-9}$  \\
+Logit ensemble              & 160 & 124 & 36 & $<10^{-10}$ \\
+Feature ensemble (MLP)      & 130 & 101 & 29 & $<10^{-7}$  \\
+Binary-opt fusion (Var.\ A) &  75 &  58 & 17 & $<10^{-5}$  \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,0 +1,28 @@
+% Table 3.3 — Hyperparameter specification
+\begin{table}[t]
+\centering
+\small
+\caption{Complete hyperparameter specification for baseline and two-head fusion models.}
+\label{tab:hyperparameters}
+\begin{tabular}{lll}
+\toprule
+\textbf{Hyperparameter} & \textbf{Baseline (linear head)} & \textbf{v3.6 two-head} \\
+\midrule
+Optimiser            & AdamW                          & AdamW                                \\
+Weight decay         & $1\mathrm{e}{-4}$              & $5\mathrm{e}{-4}$                    \\
+Learning rate        & $1\mathrm{e}{-3}$              & $1\mathrm{e}{-4}$ (bin) / $3\mathrm{e}{-4}$ (sub) \\
+LR schedule          & Cosine, 30 epochs              & 3-epoch warm-up $\to$ cosine, 60 epochs \\
+Batch size           & 16                             & 16                                   \\
+Loss                 & CE + smoothing 0.1             & BCE + 1.0\,$\cdot$\,LA-CE($\tau$=1.0, $\tau_{\text{Ductal}}$=0.0) \\
+Class weighting      & WeightedRandomSampler          & WeightedRandomSampler ($1/\sqrt{f_c}$) \\
+Label smoothing      & 0.1                            & 0.05                                 \\
+Dropout              & ---                            & 0.5                                  \\
+EMA decay            & ---                            & 0.999                                \\
+Gradient clip        & $\|g\|_2 \le 1.0$              & $\|g\|_2 \le 1.0$                    \\
+Selection criterion  & max val bin-F1                 & $0.3\!\cdot\!\text{bin-F1}+0.7\!\cdot\!\text{macro-F1}$ gated bin-F1$>$0.970 \\
+TTA                  & ---                            & 10 passes, $\mathcal{N}(0, 0.01)$ feature noise \\
+Calibration          & ---                            & Per-class temp.\ scaling (LBFGS on val NLL) \\
+Random seed          & 42                             & 42                                   \\
+\bottomrule
+\end{tabular}
+\end{table}
