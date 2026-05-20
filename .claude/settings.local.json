@@ -9,7 +9,10 @@
       "Bash(.venv/bin/python -m pip install --quiet matplotlib numpy)",
       "Bash(.venv/bin/python -c \"import numpy, matplotlib; print\\(numpy.__version__, matplotlib.__version__\\)\")",
       "Bash(.venv/bin/python fix_format.py)",
-      "Bash(.venv/bin/python fix_toc.py)"
+      "Bash(.venv/bin/python fix_toc.py)",
+      "Bash(.venv/bin/python fix_more_tables.py)",
+      "Bash(.venv/bin/python fix_lof_lot.py)",
+      "Bash(.venv/bin/python add_sota_section.py)"
     ]
   }
 }
