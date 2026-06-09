@@ -25,7 +25,10 @@
       "Bash(python3 -c \"import json;d=json.load\\(open\\('results/single_backbone_cv_image/cv_summary.json'\\)\\);print\\(list\\(d.keys\\(\\)\\)\\); [print\\(k, {kk:vv for kk,vv in d['aggregate'][k].items\\(\\) if 'f1_8class' in kk}\\) for k in d['aggregate']] if 'aggregate' in d else print\\('per-model agg:',{k:d[k]['aggregate']['f1_8class_mean'] for k in ['swin','convnext','ensemble'] if k in d}\\)\")",
       "Bash(python3 -c \"import json;d=json.load\\(open\\('results/fusion_mlp_twohead_cv_v36/cv_summary.json'\\)\\);print\\(d['aggregate']['f1_8class_mean'], d['aggregate']['f1_8class_std']\\)\")",
       "Bash(python3 -c \"import json;print\\('pat',json.load\\(open\\('results/fusion_mlp_binary_cv_patient/cv_summary.json'\\)\\)['aggregate']['f1_8class_mean']\\);print\\('img',json.load\\(open\\('results/fusion_mlp_binary_cv_image/cv_summary.json'\\)\\)['aggregate']['f1_8class_mean']\\)\")",
-      "Bash(python3 *)"
+      "Bash(python3 *)",
+      "Bash(grep -viE \"\\\\.png$\")",
+      "Bash(/home/abdullah/venvs/torch-rocm/bin/python -c ' *)",
+      "Bash(/home/abdullah/venvs/torch-rocm/bin/python -)"
     ]
   }
 }

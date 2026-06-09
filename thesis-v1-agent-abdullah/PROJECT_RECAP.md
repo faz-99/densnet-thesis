@@ -13,18 +13,25 @@
 
 ---
 
-## 1. Terminology / artifact map (these names collide — be careful)
+## 1. Model zoo — the FIVE fusion models (names collide badly — read this carefully)
 
-| Name in repo | What it is | Params | Protocol | 8-class macro-F1 |
-|---|---|---|---|---|
-| **`feature_ensemble`** = **"our fusion model"** | concat Swin(1024)+ConvNeXt(1024) → MLP 2048→256→128→8, **NO gate** | 562K | patient-CV (5 folds) | 0.8211 ± 0.1599 |
-| **`v3.6`** (two-head) | same fusion + **8-expert gate** + SE + EMA + logit-adjusted loss | ≈4.27M | patient-CV (5 folds) | **0.8352 ± 0.0876** ← headline |
-| Binary-opt fusion (Variant A) | `fusion_mlp_binary_cv_patient`, 1.05M | 1.05M | patient-CV | 0.8208 |
-| Macro-opt fusion (Variant B) | `fusion_mlp_macro` | 1.05M | **single-split ONLY** | 0.8434 (single-split, optimistic) |
+⚠️ **"Feature ensemble" means TWO DIFFERENT models in this project.** This is the root of most confusion:
+- **(a) FeatureEnsembleMLP** = `2048→256→128→8`, 562K, the deep "naive fusion" baseline (cell 2.5.17). The user calls this **"our fusion model."** Dir `feature_ensemble_cv_patient`.
+- **(b) "Feature ens. (binary-opt MLP)"** = Variant A = `weights/fusion_mlp` = `2048→512→8`, 1.05M (cell 2.5.2). CLAUDE.md's single-split test table nicknames this "Feature ens." too. **This is the XAI model and the ECE=0.0605 owner.**
+
+| # | Model | Arch | Params | Protocol | Key numbers | Has XAI? |
+|---|---|---|---|---|---|---|
+| 1 | **feature_ensemble** (FeatureEnsembleMLP) = user's "fusion model" | 2048→256→128→8 | 562K | patient-CV | 8c-F1 **0.8211 ± 0.1599** | ❌ |
+| 2 | **Variant A binary-opt** = `weights/fusion_mlp` (a.k.a. "Feature ens. binary-opt MLP") | 2048→512→8 | 1.05M | single-split + patient-CV | single 0.8747; patient-CV 0.8208; **ECE 0.0605**; **← the XAI model** | ✅ (the one explained) |
+| 3 | Variant B macro-opt = `fusion_mlp_macro` | 2048→512→8 | 1.05M | **single-split ONLY** | 0.8434 (optimistic) | ❌ |
+| 4 | **v3.6 two-head** = `fusion_mlp_twohead` | gate + 8 experts + SE + 2 heads | **4.6M** (ckpt; ~4.27M reported) | patient-CV | 8c-F1 **0.8352 ± 0.0876** ← HEADLINE | ❌ |
+| 5 | v3.6 + Swin last-block FT | as #4, FT-Swin feats | 4.6M | single-split | 0.8816 | ❌ |
 
 **Traps:**
-- Notebook **cell 13** labels the 1.05M Variant A/B as "Feature Ens." too — *different* artifact from the 562K `feature_ensemble`. Cell 13 is a **single train/val split** (X_val=253), optimistically biased — **never compare its numbers to patient-CV numbers.**
-- **Pooled** macro-F1 (0.863 / 0.892) ≠ **mean-of-folds** macro-F1 (0.8211 / 0.8352). Both valid; **label which aggregation** and never mix them in one column.
+- The XAI (deletion-AUC/IG/runtime, Table 4.2) was run on **#2 (Variant A binary-opt)** — NOT on the user's feature_ensemble (#1) and NOT on v3.6 (#4). CLAUDE.md confirms "IG on FusionWrapper" = the Variant-A fusion.
+- **ECE=0.0605 = #2 (binary-opt), single split.** v3.6's ECE is "—" (not computed). Do NOT write "v3.6 ECE=0.0605."
+- Notebook **cell 13** also labels #2/#3 as "Feature Ens." — single train/val split (X_val=253), optimistically biased. **Never compare single-split numbers to patient-CV numbers.**
+- **Pooled** macro-F1 (FE 0.863 / v3.6 0.892) ≠ **mean-of-folds** macro-F1 (0.8211 / 0.8352). Both valid; label the aggregation, never mix in one column.
 
 ---
 
@@ -100,8 +107,10 @@ The gate reallocates capacity away from the over-represented majority (ductal) t
 - **McNemar v3.6 vs feature_ensemble ALREADY DONE** (`tables/mcnemar_results.tex`, Table 3.4 / 5.4): discordant b+c=130, **b=101 (v3.6 wins), c=29 (FE wins), p<10⁻⁷**. v3.6 significantly beats the fusion model. (The p=8.6e-5 in `stat_tests_patient_cv` was the v3.6-vs-binary-opt pair, b+c=75.)
 - **Gating ablation ALREADY DONE** (`tables/gating_ablation.txt`, Table 3.2, patient-CV 8-class macro-F1): No-gate/feature_ensemble 0.8211 · **Hard gate (argmax) 0.7959** · **Soft average (fixed w) 0.8129** · **Learned gate (v3.6) 0.8352** — all 4.27M params except no-gate. KEY PROOF: at *equal* 4.27M params, learned gate (0.8352) > soft-average (0.8129) > hard gate (0.7959). The gate's value is NOT just extra params.
 
-**⚠️ UNVERIFIED / needs resolving before use:**
-- **ECE = 0.0605** is real (`results/table_4_1.json`, netcal/15-bin, after **per-class temperature scaling**) BUT the source CSV labels that row **"Feature Ensemble"**, while thesis-writing scripts attribute 0.0605 to **"v3.6"**. **CONFIRM which model owns ECE=0.0605 before claiming "v3.6 is calibrated."** Note it is a **binary** calibration metric (table 4.1 is BA/Sens/Spec), likely single-split — not 8-class patient-CV calibration.
+**RESOLVED (via CLAUDE.md test-set table):**
+- **ECE = 0.0605 belongs to Variant A binary-opt fusion (model #2), single split** — CLAUDE.md lists it under "Feature ens. (binary-opt MLP)" (MCC 0.9647 matches `table_4_1.json`), with **v3.6's ECE shown as "—" (not computed)**. So thesis prose attributing ECE=0.0605 to **v3.6 is an ERROR.** It is binary calibration (after per-class temp scaling) on the single split, for the binary-opt MLP — not v3.6, not 8-class, not patient-CV.
+
+**⚠️ STILL UNVERIFIED:**
 - "First/only calibrated BreakHis model" — soften to the defensible version your own scripts use: **"none of the cited 2022+ BreakHis work reports ECE."** Do not claim "first ever."
 
 **MISSING (must run to produce):**
@@ -183,5 +192,19 @@ The gate reallocates capacity away from the over-represented majority (ductal) t
 - **Per-class IG + method comparison:** `ig_8class_grid.png`, `xai_comparison_grid.png`, `fig_4_2_xai_summary.png`, `fig_4_3_xai_benchmark.png`.
 - **Faithfulness (quantitative XAI):** `faithfulness_deletion_3methods.png`, `deletion_auc_boxplot.png`; localisation `iou_histogram.png`, `heatmap_iou_histogram.png`.
 - **Curated case-study panels** (`results/xai/{hirescam_convnext, swin_attention, swin_gradcam}/`) — filenames encode the case: `*_conv_wins_*` (0033, 0088 DC), `*_swin_wins_*` (0053 DC, 0214 PC), `*_both_wrong_*` (0172/0173 **lobular** — the hard class), `*_high_disagree_*` (0203 MC, 0227 PT), `*_easy_*` (0007, 0094, 0222, 0243). Use a **conv_wins + swin_wins pair** to prove complementarity visually, and a **both_wrong lobular** case to discuss the hardest subtype.
-- ⚠️ **Gap:** the per-sample XAI panels are per-backbone (ConvNeXt HiResCAM, Swin attention/GradCAM). Verify whether a **v3.6 / fusion-level** attribution map per sample exists; if not, that's the one explainability figure worth generating ("Exp A").
+- ⚠️ **MAJOR GAP — explainability was run on NEITHER feature_ensemble NOR v3.6.** Three architectures, all distinct (verified by state-dict shapes):
+  - XAI "Fusion" = `weights/fusion_mlp` = plain `2048→512→8` MLP, **1,053,192 params** ← this is what got IG/deletion/runtime.
+  - **feature_ensemble** (the user's fusion model) = `2048→256→128→8`, **562K** ← NO XAI.
+  - **v3.6** = `weights/fusion_mlp_twohead`, 8-expert gate + SE + 2 heads, **4,604,787 params** ← NO XAI.
+  The XAI "Fusion" MLP is an orphan that isn't a headline model anywhere. The three XAI "models" are Swin-alone, ConvNeXt-alone, and this 1.05M MLP. **FIX:** re-run the XAI pipeline on the **v3.6** gated checkpoint so the explainability and results chapters describe the SAME model; bonus = gate-weight-conditioned attributions (which expert fires per subtype). This is the real "Exp A".
+
+### 9.7 XAI metrics actually computed (VERIFIED) — THREE axes, not just deletion
+1. **Deletion-AUC** (faithfulness, ↓ better) — `table_4_2.json`, n=30, IG 20 steps. IG dominates all CAMs: IG Swin 0.409 · ConvNeXt **0.130** · **Fusion(MLP) 0.178**; CAM family 0.38–0.53. Honest claim: "IG is the most faithful method; ~2.6× better than any CAM on the fusion model." Do NOT claim fusion-IG beats both backbones (ConvNeXt-IG 0.130 < Fusion 0.178, ~1 std on 30 imgs).
+2. **Heatmap IoU** (spatial complementarity between Swin & ConvNeXt maps, ↓ = different regions → justifies fusion) — `heatmap_iou_full.npy` mean **0.0766** (258 cases); curated low-IoU cases ≈0. Drives `fig_4_1_spatial_complementarity.png`.
+3. **Runtime/image** (efficiency) — `table_4_2.json`: IG ≈0.49s/img vs CAM ≈0.08s.
+
+**Attention Rollout (Swin):** implemented (custom hook-based, windowed attention) → qualitative maps in `results/xai/swin_attention/` (12 cases). Used ONLY qualitatively (global-vs-local visual). NOT in Table 4.2 — no deletion-AUC/runtime/IoU for it (cells 29/32 note Grad-CAM "replaces the monkey-patched rollout" for quantitative Swin maps). Describe as a qualitative attention visualisation, not a scored method, unless added to the benchmark.
+
+**NOT computed** (despite earlier plan): insertion-AUC, stability/sensitivity, sparsity, cross-method consistency. Don't claim them.
+**ALL three axes** were run on Swin-alone / ConvNeXt-alone / simple Fusion MLP — **NOT v3.6** (IoU doesn't even involve the fusion head). Closing the v3.6-XAI gap = re-run all three on the gated checkpoint.
 
