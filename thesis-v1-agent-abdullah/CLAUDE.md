@@ -21,7 +21,6 @@ Living changelog of decisions, code edits, and experimental artefacts for the *M
 - **Imbalance:** Ductal Carcinoma 43.4% vs Adenosis 5.7% (max/min ≈ 7.6×).
 - **Augmentation:** RandomResizedCrop, H/V flips, RandomRotation 90°, ColorJitter (0.15/0.15/0.1/0.05), RandomErasing (p=0.1). Validation/test deterministic.
 - **ImageNet normalisation** (μ=[0.485,0.456,0.406], σ=[0.229,0.224,0.225]).
-- **Stain ablation skipped** in the final thesis (Macenko/Reinhard variants exist on disk but are out of scope).
 - Metadata: `data/dataset_metadata.json`.
 
 ---
@@ -201,17 +200,6 @@ Added 2026-05-04. Active during the run:
 
 ---
 
-## Macenko stain-norm cell (`2.2`) — fixed but unused
-
-`03_training.ipynb` cell 2.2 retrains `swin_macenko` after a stain-vector bug was fixed. Idempotent:
-- Skips data regeneration if `data/processed/macenko/.split_complete` exists.
-- Skips training if `weights/swin_macenko/best_model.pth` exists.
-- Destructive `shutil.rmtree(macenko_dir)` removed on 2026-05-03.
-
-Stain ablation is **out of scope** for the final thesis. Cell preserved for reference only.
-
----
-
 ## Explainability framework
 
 Methodology Section 3.5 / Section 4.3.
@@ -231,9 +219,9 @@ In `figures/`. Diagrammatic figures regenerable from `scripts/draw_*.py`. Chapte
 
 ### Dataset / EDA chapter
 - `class_distribution.png`, `sample_images.png`, `image_statistics.png`, `augmentation_examples.png`.
+- `filename_schema.png` — annotated diagram of the BreaKHis filename schema (patient-ID extraction).
 - `patient_cv_diagram.png` — schematic of patient-disjoint 5-fold CV.
 - `sampler_distribution.png` — `1/√f_c` weighted-sampler effective probability.
-- `stain_normalization_comparison.png` — appendix only (stain section dropped from final thesis).
 
 ### Methodology chapter
 - `methodology_overview.png` — Figure 3.1 pipeline overview.
@@ -293,7 +281,6 @@ Built by `scripts/build_chapter5_tables.py` (and `build_gating_ablation_table.py
 weights/
   convnext_none/best_model.pth                    ← fine-tuned ConvNeXt (frozen)
   swin_none/best_model.pth                        ← fine-tuned Swin (frozen)
-  convnext_macenko/, swin_macenko/, …             ← stain ablation (out of scope)
   fusion_mlp/best_model.pth                       ← Variant A (binary-opt)
   fusion_mlp_macro/best_model.pth                 ← Variant B (macro-opt)
   fusion_mlp_twohead/                             ← Variant C (v3.7 head — cell 2.5.5)

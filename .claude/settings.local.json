@@ -14,7 +14,18 @@
       "Bash(.venv/bin/python fix_lof_lot.py)",
       "Bash(.venv/bin/python add_sota_section.py)",
       "Bash(.venv/bin/python -m pip install --quiet python-pptx)",
-      "Bash(.venv/bin/python build_defense_pptx.py)"
+      "Bash(.venv/bin/python build_defense_pptx.py)",
+      "Bash(python3 -c \"import json; nb=json.load\\(open\\('03_training.ipynb'\\)\\); print\\('total cells:', len\\(nb['cells']\\)\\)\")",
+      "Bash(python3 -c \"import json;d=json.load\\(open\\('results/single_backbone_cv_patient/cv_summary.json'\\)\\);print\\(json.dumps\\({k:\\(v.get\\('aggregate',v\\) if isinstance\\(v,dict\\) else v\\) for k,v in d.items\\(\\)},indent=1\\)[:1500]\\)\")",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 -c \"import json;d=json.load\\(open\\('results/fusion_mlp_twohead_cv_v36_patient/cv_summary.json'\\)\\);print\\(json.dumps\\(d.get\\('aggregate',d\\),indent=1\\)\\)\")",
+      "Bash(cd *)",
+      "Bash(python3)",
+      "Bash(python3 -c \"import json;d=json.load\\(open\\('results/stat_tests_patient_cv/summary.json'\\)\\);print\\(json.dumps\\(d,indent=1\\)[:1400]\\)\")",
+      "Bash(python3 -c \"import json;d=json.load\\(open\\('results/single_backbone_cv_image/cv_summary.json'\\)\\);print\\(list\\(d.keys\\(\\)\\)\\); [print\\(k, {kk:vv for kk,vv in d['aggregate'][k].items\\(\\) if 'f1_8class' in kk}\\) for k in d['aggregate']] if 'aggregate' in d else print\\('per-model agg:',{k:d[k]['aggregate']['f1_8class_mean'] for k in ['swin','convnext','ensemble'] if k in d}\\)\")",
+      "Bash(python3 -c \"import json;d=json.load\\(open\\('results/fusion_mlp_twohead_cv_v36/cv_summary.json'\\)\\);print\\(d['aggregate']['f1_8class_mean'], d['aggregate']['f1_8class_std']\\)\")",
+      "Bash(python3 -c \"import json;print\\('pat',json.load\\(open\\('results/fusion_mlp_binary_cv_patient/cv_summary.json'\\)\\)['aggregate']['f1_8class_mean']\\);print\\('img',json.load\\(open\\('results/fusion_mlp_binary_cv_image/cv_summary.json'\\)\\)['aggregate']['f1_8class_mean']\\)\")",
+      "Bash(python3 *)"
     ]
   }
 }
