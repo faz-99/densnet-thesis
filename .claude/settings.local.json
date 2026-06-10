@@ -28,7 +28,8 @@
       "Bash(python3 *)",
       "Bash(grep -viE \"\\\\.png$\")",
       "Bash(/home/abdullah/venvs/torch-rocm/bin/python -c ' *)",
-      "Bash(/home/abdullah/venvs/torch-rocm/bin/python -)"
+      "Bash(/home/abdullah/venvs/torch-rocm/bin/python -)",
+      "Bash(grep -E \"\\\\.\\(txt|json|py\\)$\")"
     ]
   }
 }
