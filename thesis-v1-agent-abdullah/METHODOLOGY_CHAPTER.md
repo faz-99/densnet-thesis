@@ -84,22 +84,11 @@ introduces scale invariance; at validation and test time the deterministic
 the standard ImageNet statistics (μ = [0.485, 0.456, 0.406], σ = [0.229, 0.224, 0.225]),
 consistent with the pretraining distribution of the backbones.
 
-### 3.3.2 The stain-normalisation decision
-
-Stain normalisation (Macenko and Reinhard) was evaluated as a candidate preprocessing step,
-on the standard assumption that reducing colour variation between slides should help. In
-practice **both methods destabilised backbone training** — training collapsed to
-near-zero macro-F1 rather than converging. We therefore made the deliberate methodological
-choice to use **no stain normalisation**, relying instead on colour-space augmentation
-(below) to provide robustness to staining variation. This is an important decision to state
-explicitly because it runs against a common default in the literature; the justification is
-empirical, and the collapsed runs are retained as negative evidence.
-
-### 3.3.3 Augmentation
+### 3.3.2 Augmentation
 
 Training images pass through the augmentation pipeline in Table 3.2. Histopathology images
 have no canonical orientation, which justifies the aggressive use of flips and 90° rotations;
-the colour jitter substitutes for the rejected stain normalisation; and random erasing
+the colour jitter provides robustness to staining variation between slides; and random erasing
 discourages reliance on any single local region.
 
 **Table 3.2 — Training-time augmentation pipeline**
@@ -114,7 +103,7 @@ discourages reliance on any single local region.
 | RandomErasing | p = 0.1, scale (0.02, 0.1) | occlusion robustness |
 | Normalize | ImageNet μ, σ | match pretraining distribution |
 
-> **[ATTACH Figure 3.4 — `figures/augmentation_examples.png`]** in §3.3.3 to show the
+> **[ATTACH Figure 3.4 — `figures/augmentation_examples.png`]** in §3.3.2 to show the
 > visual effect of the pipeline (original vs augmented panels).
 
 ---
@@ -166,55 +155,18 @@ their fine-tuning schedule, reflecting their different architectures:
 
 ## 3.5 Feature Extraction and the Case for Fusion
 
-### 3.5.1 Notation
+After fine-tuning (§3.4.1), each backbone is frozen and used as a deterministic feature
+extractor. The two penultimate-layer vectors — local $z_{\text{loc}}\in\mathbb{R}^{1024}$ from
+ConvNeXt and global $z_{\text{glob}}\in\mathbb{R}^{1024}$ from Swin — are concatenated into the
+**fused representation** $x_f = [\,z_{\text{loc}} \Vert z_{\text{glob}}\,] \in \mathbb{R}^{2048}$.
+Because the backbones are frozen, $x_f$ is computed once and cached for all 1,693 images, which
+makes the classifier experiments cheap enough to support the long design journey of §3.6.
 
-Let an input image be $x \in \mathbb{R}^{3\times 224\times 224}$ with subtype label
-$y \in \{1,\dots,8\}$ and binary label $b \in \{0,1\}$ (1 = malignant). The eight subtypes are
-indexed by $\mathcal{C}=\{1,\dots,8\}$, of which the malignant subset is
-$\mathcal{M}=\{\text{ductal},\text{lobular},\text{mucinous},\text{papillary}\}$, so that
-$b = \mathbb{1}[y \in \mathcal{M}]$. The class frequencies are $n_c$ (Table 3.1) with priors
-$\pi_c = n_c / \sum_{c'} n_{c'}$. Table 3.5 summarises the symbols used throughout this
-chapter.
-
-**Table 3.5 — Notation**
-
-| Symbol | Meaning |
-|---|---|
-| $z_{\text{loc}},\, z_{\text{glob}} \in \mathbb{R}^{1024}$ | ConvNeXt (local) and Swin (global) feature vectors |
-| $x_f = [z_{\text{loc}} \,\Vert\, z_{\text{glob}}] \in \mathbb{R}^{2048}$ | fused feature (concatenation) |
-| $h_s \in \mathbb{R}^{1024}$ | shared-trunk representation |
-| $h_b \in \mathbb{R}^{256},\; h_u \in \mathbb{R}^{512}$ | binary-branch and subtype-branch representations |
-| $\ell_{\text{bin}} \in \mathbb{R}$ | binary logit |
-| $\ell_c,\; c\in\mathcal{C}$ | per-class subtype logits |
-| $g_c$ | gate weight for class $c$ |
-| $\pi_c,\, \tau_c,\, \alpha_c$ | class prior, logit-adjustment temperature, loss weight |
-
-### 3.5.2 Feature extraction
-
-After fine-tuning (§3.4.1), each backbone is frozen and used as a deterministic feature map.
-Writing $\phi_{\text{cnx}}$ and $\phi_{\text{swin}}$ for the two backbones truncated at their
-penultimate (post-global-pool, pre-classifier) layer,
-
-$$
-z_{\text{loc}} = \phi_{\text{cnx}}(x) \in \mathbb{R}^{1024}, \qquad
-z_{\text{glob}} = \phi_{\text{swin}}(x) \in \mathbb{R}^{1024},
-$$
-
-and the **fused representation** is their concatenation,
-
-$$
-x_f = [\,z_{\text{loc}} \,\Vert\, z_{\text{glob}}\,] \in \mathbb{R}^{2048}.
-$$
-
-Because the backbones are frozen, $x_f$ is computed once and cached for all 1,693 images,
-making the classifier experiments cheap enough to support the long design journey of §3.6.
-
-The hypothesis under test is that a classifier on $x_f$ outperforms one on either
-$z_{\text{loc}}$ or $z_{\text{glob}}$ alone, *because* the local and global views are
-complementary (their predictions are imperfectly correlated; the inter-backbone agreement is
-$\kappa = 0.68$). As the journey shows, this hypothesis holds for **subtype** discrimination
-but is essentially neutral for the **binary** task, which directly motivates the single-model
-two-head design of §3.10.
+The hypothesis under test is that a classifier on $x_f$ outperforms one on either view alone,
+*because* the local and global features are complementary (their predictions are imperfectly
+correlated; inter-backbone agreement $\kappa = 0.68$). As the journey shows, this holds for
+**subtype** discrimination but is essentially neutral for the **binary** task — which directly
+motivates the single-model two-head design of §3.10.
 
 > **[ATTACH Figure 3.7 — `figures/model_parameter_comparison.png`]** to contrast the heavy
 > frozen backbones with the lightweight trainable fusion head, motivating why iteration was
@@ -314,94 +266,37 @@ intent only.*
 ## 3.7 The v3.6 Two-Head Gated Architecture
 
 The production classifier maps the fused feature $x_f \in \mathbb{R}^{2048}$ to a binary logit
-$\ell_{\text{bin}}$ and an eight-class logit vector $\ell = (\ell_1,\dots,\ell_8)$. It is a
-**conditional, gated mixture-of-experts** with two task-specific heads sharing a common trunk.
-Every component below is the direct remedy to a failure documented in §3.6. The full forward
-pass is given in Equations (3.1)–(3.9); $\mathrm{LN}$ denotes LayerNorm, $\mathrm{GN}_{32}$
-GroupNorm with 32 groups, $\sigma$ the logistic function, and $\odot$ elementwise product.
+$\ell_{\text{bin}}$ and eight subtype logits $\ell_1,\dots,\ell_8$. It is a **conditional, gated
+mixture-of-experts** with two task-specific heads on a shared trunk; every component is the
+direct remedy to a failure documented in §3.6.
 
-**Shared trunk.** A single linear projection compresses the fused feature and is the only
-component both tasks share:
+**Shared trunk and two heads.** A single linear projection compresses $x_f$ to a 1024-D shared
+representation $h_s$ (`Linear → BatchNorm → ReLU → Dropout 0.5`). From $h_s$, a shallow MLP
+yields the binary logit $\ell_{\text{bin}}$ (BatchNorm is fine here — the binary labels are
+near-balanced), while a **decoupled** subtype branch projects to a 512-D representation $h_u$.
+The subtype branch uses **GroupNorm(32) instead of BatchNorm** — the single most important
+architectural choice, because GroupNorm is independent of batch composition and so immune to
+the one-sample rare-class batches that produced NaNs and collapsed v3.5. $h_u$ also carries a
+Squeeze-and-Excitation channel recalibration ($r=16$) and a scaled residual
+$0.3\cdot\mathrm{LN}(W_r x_f)$ that re-injects the raw fused feature.
 
-$$
-h_s = \mathrm{Drop}_{0.5}\!\Big(\mathrm{ReLU}\big(\mathrm{BN}(W_s x_f + b_s)\big)\Big),
-\qquad W_s \in \mathbb{R}^{1024\times 2048}. \tag{3.1}
-$$
-
-**Binary head.** A shallow MLP produces the malignancy logit. BatchNorm is retained here
-because the binary labels are near-balanced, so batch statistics are stable:
-
-$$
-h_b = \mathrm{Drop}_{0.5}\!\Big(\mathrm{ReLU}\big(\mathrm{BN}(W_b h_s + b_b)\big)\Big),
-\qquad
-\ell_{\text{bin}} = w_b^\top h_b + \beta_b. \tag{3.2}
-$$
-
-**Subtype trunk.** The subtype branch is deliberately decoupled from the binary branch and
-uses **GroupNorm instead of BatchNorm** — the single most important architectural choice,
-because $\mathrm{GN}$ is independent of batch composition and therefore immune to the
-one-sample rare-class batches that produced NaNs and collapsed v3.5:
+**Gated mixture-of-experts.** Each class $c$ receives its own *view* of $h_u$, scaled
+channel-wise by a learned, **sigmoid-bounded** modulation, and is scored by a dedicated expert
+MLP $\mathcal{E}_c$ (ductal widened to $512\!\to\!256\!\to\!1$, the other seven
+$512\!\to\!128\!\to\!1$). A softmax routing gate $g=\mathrm{softmax}(\mathrm{MLP}(h_u))$ then
+biases the per-class logits:
 
 $$
-u_0 = \mathrm{Drop}_{0.5}\!\Big(\mathrm{ReLU}\big(\mathrm{GN}_{32}(W_u h_s + b_u)\big)\Big),
-\qquad W_u \in \mathbb{R}^{512\times 1024}. \tag{3.3}
+m_c = h_u \odot \big(0.5 + 0.5\,\sigma(\theta_c)\big), \qquad
+\ell_c = \mathcal{E}_c(m_c) + 0.1\,\log g_c. \tag{3.1}
 $$
 
-A **Squeeze-and-Excitation** block ($r=16$) then recalibrates the 512 channels, gated by a
-**scaled residual** that re-injects the raw fused feature so that information compressed away
-by the shared trunk is recoverable:
-
-$$
-s = \sigma\!\big(W_2\,\mathrm{ReLU}(W_1 u_0)\big),\quad W_1\in\mathbb{R}^{32\times512},\ W_2\in\mathbb{R}^{512\times32}, \tag{3.4}
-$$
-$$
-h_u = \mathrm{Drop}_{0.5}\!\Big(\mathrm{ReLU}\big(u_0 \odot s \;+\; 0.3\cdot \mathrm{LN}(W_r x_f)\big)\Big),
-\qquad W_r \in \mathbb{R}^{512\times 2048}. \tag{3.5}
-$$
-
-**Per-class feature modulation.** Rather than feed one shared vector to all classes, each
-class $c$ receives its own *view* of $h_u$, scaled channel-wise by a learned, **sigmoid-bounded**
-gate. The bound $[0.5,1]$ is critical: it lets the model emphasise or de-emphasise channels per
-class but **never zero them out**, which is what caused the v3.5 gate collapse:
-
-$$
-m_c = h_u \odot \big(0.5 + 0.5\,\sigma(\theta_c)\big), \qquad \theta_c \in \mathbb{R}^{512},\ c \in \mathcal{C}. \tag{3.6}
-$$
-
-**Experts and routing gate.** Each class has a dedicated expert MLP $\mathcal{E}_c$ producing a
-scalar; the ductal expert is widened ($512\!\to\!256\!\to\!1$) to match its data abundance, the
-other seven are $512\!\to\!128\!\to\!1$. A separate softmax **routing gate** computes a
-distribution over the eight experts from $h_u$:
-
-$$
-g = \mathrm{softmax}\big(W_{g2}\,\mathrm{ReLU}(W_{g1} h_u)\big) \in \Delta^{7},
-\quad W_{g1}\in\mathbb{R}^{64\times512},\ W_{g2}\in\mathbb{R}^{8\times64}. \tag{3.7}
-$$
-
-The final subtype logit for class $c$ adds a small log-gate bias to the expert output (so the
-gate sharpens or softens a class without overriding the expert evidence):
-
-$$
-\ell_c = \mathcal{E}_c(m_c) \;+\; 0.1\,\log g_c. \tag{3.8}
-$$
-
-The predicted distributions are then
-
-$$
-p_{\text{bin}} = \sigma(\ell_{\text{bin}}/T_{\text{bin}}), \qquad
-p_c = \frac{\exp(\ell_c / T_c)}{\sum_{c'}\exp(\ell_{c'}/T_{c'})}, \tag{3.9}
-$$
-
-where the per-class temperatures $T_c$ are the post-hoc calibration parameters of §3.9 (all
-$T_c = 1$ during training).
-
-Note that this differs from a *standard* mixture-of-experts in two ways that matter for the
-imbalanced setting: (i) the experts are **class-indexed**, not anonymous, so each carries a
-fixed semantic role; and (ii) the gate **biases** the per-class logits additively (Eq. 3.8)
-rather than forming a convex combination of expert *outputs*, which keeps every class's
-evidence in the final decision even when the gate is uncertain. The whole classifier has
-$\approx 4.27\,\text{M}$ trainable parameters — a tiny fraction of the $\sim$174 M frozen in
-the two backbones.
+The bound $[0.5,1]$ on the modulation is critical: it lets the model emphasise channels per
+class but **never zero them out** (the v3.5 collapse). And because the gate enters as an
+*additive bias* (Eq. 3.1) rather than a convex combination of expert outputs, every class's
+evidence survives in the decision even when the gate is uncertain. The whole classifier has
+$\approx 4.27\,\text{M}$ trainable parameters — a fraction of the $\sim$174 M frozen in the
+backbones.
 
 > **[ATTACH Figure 3.9 — `figures/gate_distribution.png`]** (and optionally
 > `gate_entropy_by_fold.png`) in §3.7 to show that the routing gate $g$ learns non-degenerate,
@@ -411,77 +306,39 @@ the two backbones.
 
 ## 3.8 Loss Function, Sampling, and Optimisation
 
-### 3.8.1 Joint objective
-
-The two heads are trained jointly. The binary head uses binary cross-entropy on
-$\ell_{\text{bin}}$; the subtype head uses **Logit-Adjusted Cross-Entropy** (LA-CE, Menon et
-al., 2020), a principled long-tailed objective that replaced the fragile focal loss of v2
-(§3.6). The combined per-sample loss is
-
-$$
-\mathcal{L} = \underbrace{\mathrm{BCE}\big(\sigma(\ell_{\text{bin}}),\, b\big)}_{\text{malignancy}}
-\;+\; \underbrace{\mathcal{L}_{\text{LA}}(\ell, y)}_{\text{subtype}}. \tag{3.10}
-$$
-
-LA-CE shifts each logit by a temperature-scaled log-prior *before* the softmax, which enlarges
-the decision margin required of frequent classes and so protects the tail without reweighting
-gradients destructively:
+**Joint objective.** The two heads are trained jointly: binary cross-entropy on
+$\ell_{\text{bin}}$ plus **Logit-Adjusted Cross-Entropy** (LA-CE; Menon et al., 2020) on the
+subtype logits, a principled long-tailed objective that replaced the fragile focal loss of v2.
+LA-CE shifts each logit by a temperature-scaled log-prior *before* the softmax, enlarging the
+margin demanded of frequent classes without destructively reweighting gradients:
 
 $$
-\mathcal{L}_{\text{LA}}(\ell, y) \;=\; -\,\alpha_y \,
-\log \frac{\exp\!\big(\ell_y + \tau_y \log \pi_y\big)}
-{\sum_{c\in\mathcal{C}} \exp\!\big(\ell_c + \tau_c \log \pi_c\big)}, \tag{3.11}
+\mathcal{L} = \mathrm{BCE}\big(\sigma(\ell_{\text{bin}}),\, b\big)
+\;-\;\alpha_y \log \frac{\exp(\ell_y + \tau_y \log \pi_y)}
+{\sum_{c} \exp(\ell_c + \tau_c \log \pi_c)}. \tag{3.2}
 $$
 
-with label smoothing $\varepsilon = 0.05$ applied to the target. The per-class hyper-parameters
-encode two journey-driven decisions:
+Two journey-driven settings appear here: ductal is **exempted** from the adjustment
+($\tau_{\text{ductal}}=0$, others $\tau_c=1$) because the log-prior otherwise subtracts
+$\approx0.83$ from its logit and suppressed its recall (v3.3.1); and a mild class weight
+($\alpha_c=1.5$ rare, $1.0$ common) adds gradient emphasis on the tail, kept at 1.5 rather than
+2.0 because the aggressive setting collapsed the common classes (v3.2). Label smoothing
+$\varepsilon=0.05$ is applied throughout.
 
-$$
-\tau_c = \begin{cases} 0 & c=\text{ductal}\\ 1 & \text{otherwise}\end{cases}
-\qquad
-\alpha_c = \begin{cases} 1.5 & c \text{ rare}\\ 1.0 & c \text{ common}.\end{cases} \tag{3.12}
-$$
+**Variance-aware resampling.** Mini-batches are drawn with a `WeightedRandomSampler` whose
+weight is the *inverse square root* of class frequency, $w_i \propto 1/\sqrt{n_{y_i}}$. The
+square root deliberately *softens* the rebalancing relative to plain inverse-frequency — it
+lifts the effective ductal:papillary ratio from the raw $\approx5.9{:}1$ to $\approx2.4{:}1$
+rather than over-correcting, which lowered fold-to-fold variance (v3.4). Sampler and LA-CE are
+complementary: the sampler changes *how often* a class is seen, LA-CE the *margin* demanded of
+it.
 
-Exempting ductal ($\tau_{\text{ductal}}=0$) removes the $\log\pi$ penalty from the majority
-class — without it, the log-prior alone subtracts $\approx 0.83$ from the ductal logit and
-suppressed its recall (§3.6, v3.3.1). The mild $\alpha$ adds gradient emphasis on rare classes
-*on top of* the sampler below, but is kept at 1.5 rather than 2.0 because the aggressive
-setting collapsed the common classes (v3.2).
-
-### 3.8.2 Variance-aware resampling
-
-Mini-batches are drawn with a `WeightedRandomSampler` whose per-sample weight is the
-**inverse square root** of the class frequency,
-
-$$
-w_i \;=\; \frac{1}{\sqrt{n_{y_i}}}, \qquad
-\Pr(\text{draw } i) \;=\; \frac{w_i}{\sum_{j} w_j}. \tag{3.13}
-$$
-
-The square root deliberately *softens* the rebalancing relative to plain inverse-frequency
-($1/n_{y_i}$): it lifts the effective ductal:papillary ratio from the raw $\approx\!5.9{:}1$ to
-$\approx\!2.4{:}1$ rather than over-correcting to $\approx\!0.4{:}1$, which lowered fold-to-fold
-variance (§3.6, v3.4). Sampler and LA-CE are complementary: the sampler changes *how often* a
-class is seen, LA-CE changes the *margin* demanded of it.
-
-### 3.8.3 Optimisation and selection
-
-Optimisation uses AdamW (weight decay $5\times10^{-4}$) with **two learning-rate groups** —
-$10^{-4}$ for the binary branch and $3\times10^{-4}$ for the shared trunk and subtype branch —
-for 60 epochs under a 3-epoch linear warm-up followed by cosine decay. An exponential moving
-average of the weights ($\rho=0.999$) is tracked and evaluated alongside the raw weights each
-epoch.
-
-The checkpoint is selected to maximise a **clinically weighted validation criterion** subject
-to a hard floor on malignancy detection:
-
-$$
-\text{select } \arg\max_{\text{epoch}}\;\big(0.3\,F_1^{\text{bin}} + 0.7\,F_1^{\text{macro}}\big)
-\quad \text{s.t.}\quad F_1^{\text{bin}} > 0.970. \tag{3.14}
-$$
-
-The 0.7 weight and the floor together encode the priority *never trade away malignancy
-detection for subtype accuracy*, while still optimising primarily for the harder subtype task.
+**Optimisation and selection.** AdamW (weight decay $5\times10^{-4}$) with two learning-rate
+groups ($10^{-4}$ binary, $3\times10^{-4}$ shared+subtype), 60 epochs, 3-epoch warm-up then
+cosine decay, and an EMA of the weights ($\rho=0.999$). The checkpoint maximises
+$0.3\,F_1^{\text{bin}} + 0.7\,F_1^{\text{macro}}$ on validation **subject to**
+$F_1^{\text{bin}}>0.970$ — encoding the clinical priority *never trade away malignancy
+detection for subtype accuracy* while still optimising primarily for the harder subtype task.
 
 **Table 3.4 — v3.6 training configuration**
 
@@ -509,32 +366,17 @@ detection for subtype accuracy*, while still optimising primarily for the harder
 Two post-hoc procedures, applied after training, improve the reliability of the predicted
 probabilities without altering the learned representation:
 
-**Per-class temperature scaling.** Following Guo et al. (2017), the logits are divided by
-per-class temperatures $T_c$ (Eq. 3.9) fitted on the validation set by minimising the
-negative log-likelihood,
+**Per-class temperature scaling.** Following Guo et al. (2017), each class logit is divided by
+a temperature $T_c$ fitted on the validation set by L-BFGS minimisation of the negative
+log-likelihood. The majority class is constrained to $T_{\text{ductal}}\ge1$ to avoid
+over-sharpening its already-confident predictions, and the whole step is discarded if it fails
+to improve validation macro-F1. Being monotonic, it improves calibration without re-ordering
+predictions within a class.
 
-$$
-\{T_c\}^\star = \arg\min_{\{T_c\}}\; -\sum_{i\in\text{val}} \log
-\frac{\exp(\ell_{i,y_i}/T_{y_i})}{\sum_{c}\exp(\ell_{i,c}/T_c)},
-\quad \text{subject to}\quad T_{\text{ductal}} \ge 1, \tag{3.15}
-$$
-
-solved by L-BFGS. The constraint $T_{\text{ductal}}\ge 1$ prevents over-sharpening the
-already-confident majority class, and the whole step is discarded if it fails to improve
-validation macro-F1. Temperature scaling is monotonic, so it changes calibration and the
-argmax under ties but not the ranking within a class.
-
-**Test-time augmentation (TTA).** At inference the prediction is averaged over $K=10$ forward
-passes in probability space, the first on the clean feature and the rest on small
-feature-space Gaussian perturbations:
-
-$$
-\bar{p}_c = \frac{1}{K}\sum_{k=1}^{K} p_c\big(x_f + \epsilon_k\big),
-\qquad \epsilon_1 = 0,\quad \epsilon_{k>1}\sim\mathcal{N}(0,\,0.01^2 I). \tag{3.16}
-$$
-
-Averaging reduces prediction variance, which dominates the error budget on the high-variance
-rare classes.
+**Test-time augmentation (TTA).** At inference the softmax outputs of $K=10$ forward passes are
+averaged — the first on the clean feature $x_f$, the rest on small feature-space Gaussian
+perturbations $x_f + \epsilon,\ \epsilon\sim\mathcal{N}(0,0.01^2 I)$. Averaging reduces
+prediction variance, which dominates the error budget on the high-variance rare classes.
 
 > **[ATTACH Figure 3.11 — `figures/reliability_diagram_v36.png`]** and
 > **`figures/tta_calibration.png`** in §3.9.
@@ -599,46 +441,19 @@ evaluation therefore uses **patient-disjoint cross-validation**.
 Because the dataset is imbalanced and the two tasks differ, a single accuracy figure would be
 misleading. The metrics below are computed; their values appear in the Results chapter.
 
-**Subtype task — macro-F1 (primary).** Per-class F1 is averaged with equal weight, so that a
-rare class counts as much as the majority:
-
-$$
-F_1^{\text{macro}} = \frac{1}{8}\sum_{c\in\mathcal{C}} \frac{2\,\mathrm{TP}_c}{2\,\mathrm{TP}_c + \mathrm{FP}_c + \mathrm{FN}_c}. \tag{3.17}
-$$
-
-Per-class recall/precision and balanced accuracy are also reported.
-
-**Binary task.** F1, ROC-AUC, sensitivity, specificity, and the Matthews correlation
-coefficient,
-
-$$
-\mathrm{MCC} = \frac{\mathrm{TP}\cdot\mathrm{TN} - \mathrm{FP}\cdot\mathrm{FN}}
-{\sqrt{(\mathrm{TP}+\mathrm{FP})(\mathrm{TP}+\mathrm{FN})(\mathrm{TN}+\mathrm{FP})(\mathrm{TN}+\mathrm{FN})}}, \tag{3.18}
-$$
-
-which is informative under class imbalance because it accounts for all four cells of the
-confusion matrix.
-
-**Calibration — Expected Calibration Error.** Predictions are partitioned into $M=15$
-equal-width confidence bins $B_1,\dots,B_M$, and ECE is the gap between confidence and accuracy
-weighted by bin occupancy:
-
-$$
-\mathrm{ECE} = \sum_{m=1}^{M} \frac{|B_m|}{N}\,\big|\,\mathrm{acc}(B_m) - \mathrm{conf}(B_m)\,\big|. \tag{3.19}
-$$
-
-**Statistical testing.** Two models are compared on the *same* pooled patient-CV predictions
-with **McNemar's paired test** on the discordant counts $b$ (only model A correct) and $c$
-(only model B correct):
-
-$$
-\chi^2_{\text{McNemar}} = \frac{(b-c)^2}{b+c}, \tag{3.20}
-$$
-
-using the exact binomial form when $b+c<25$. Running the test separately on the binary and the
-8-class predictions is what reveals that the models differ on subtyping but not on malignancy.
-**Bootstrap 95% confidence intervals** (1,000 resamples of the pooled predictions) accompany the
-macro-F1, binary-F1 and AUC point estimates.
+- **Subtype task:** **macro-F1** (the primary metric — the unweighted mean of per-class F1, so
+  a rare class counts as much as the majority), plus per-class recall/precision and balanced
+  accuracy.
+- **Binary task:** F1, ROC-AUC, sensitivity, specificity, and the Matthews correlation
+  coefficient (MCC), which is informative under imbalance because it accounts for all four
+  cells of the confusion matrix.
+- **Calibration:** Expected Calibration Error (ECE) over 15 equal-width confidence bins — the
+  occupancy-weighted gap between confidence and accuracy, $\mathrm{ECE}=\sum_m \tfrac{|B_m|}{N}\,|\mathrm{acc}(B_m)-\mathrm{conf}(B_m)|$ — and reliability diagrams.
+- **Statistical testing:** **McNemar's paired test** on the discordant predictions of two
+  models over the *same* pooled patient-CV set (exact binomial form when the discordant count
+  $<25$). Running it separately on the binary and 8-class predictions is what reveals that the
+  models differ on subtyping but not on malignancy. **Bootstrap 95% CIs** (1,000 resamples)
+  accompany the macro-F1, binary-F1 and AUC point estimates.
 
 All cross-validated metrics in this thesis are reported as the **mean ± standard deviation
 across the five patient-disjoint folds**, unless explicitly stated otherwise. This convention
@@ -667,30 +482,18 @@ at the final convolutional block (`stages[-1].blocks[-1]`); for Swin, at the fin
 post-attention normalisation layer (`layers[-1].blocks[-1].norm2`) with the appropriate
 reshape, and Swin's native attention rollout is used for qualitative inspection.
 
-**Faithfulness metric — deletion AUC.** Attribution maps are compared objectively, not by eye,
-using a perturbation test. Pixels are removed in order of decreasing attribution; let
-$f_y(x^{(k)})$ be the predicted probability of the true class after the top $k$ fraction has
-been removed. The **deletion AUC** is the area under this curve,
-
-$$
-\mathrm{AUC}_{\text{del}} = \int_0^1 f_y\big(x^{(k)}\big)\,dk \;\approx\; \frac{1}{K}\sum_{k} f_y\big(x^{(k)}\big), \tag{3.21}
-$$
-
-and is **lower for more faithful** attributions — a faithful map identifies pixels whose
-removal collapses the prediction quickly. This ranks Grad-CAM, Grad-CAM++, HiResCAM, LayerCAM,
-and IG on a common, quantitative scale.
+**Faithfulness metric — deletion AUC.** Attribution maps are compared objectively, not by eye:
+pixels are removed in order of decreasing attribution and the predicted probability of the true
+class is tracked. The **deletion AUC** is the area under that curve and is **lower for more
+faithful** maps — a faithful attribution identifies pixels whose removal collapses the
+prediction quickly. This ranks Grad-CAM, Grad-CAM++, HiResCAM, LayerCAM and IG on one
+quantitative scale.
 
 **Complementarity metric — heatmap IoU.** To test the §3.4 hypothesis that the two backbones
-attend to *different* regions, each heatmap is thresholded at its $75^{\text{th}}$ percentile to
-a binary salient set $A_{\text{cnx}}, A_{\text{swin}}$, and their spatial
-**Intersection-over-Union** is measured per image:
-
-$$
-\mathrm{IoU} = \frac{|A_{\text{cnx}} \cap A_{\text{swin}}|}{|A_{\text{cnx}} \cup A_{\text{swin}}|}. \tag{3.22}
-$$
-
-A *low* IoU is the desired outcome: it is the quantitative evidence that the local and global
-models contribute complementary, non-redundant explanations rather than redundantly
+attend to *different* regions, each heatmap is thresholded (at its 75th percentile) to a binary
+salient set, and the spatial Intersection-over-Union between the ConvNeXt and Swin sets is
+measured per image. A *low* IoU is the desired outcome — quantitative evidence that the local
+and global models contribute complementary, non-redundant explanations rather than redundantly
 highlighting the same pixels.
 
 **Scope and an honest limitation.** The XAI benchmarks are run on three models — Swin alone,

@@ -208,3 +208,29 @@ The gate reallocates capacity away from the over-represented majority (ductal) t
 **NOT computed** (despite earlier plan): insertion-AUC, stability/sensitivity, sparsity, cross-method consistency. Don't claim them.
 **ALL three axes** were run on Swin-alone / ConvNeXt-alone / simple Fusion MLP — **NOT v3.6** (IoU doesn't even involve the fusion head). Closing the v3.6-XAI gap = re-run all three on the gated checkpoint.
 
+---
+
+## 10. Session recap — 2026-06-11 (thesis chapters + statistics verification)
+
+### 10.1 Deliverables written
+- **`METHODOLOGY_CHAPTER.md`** — full Chapter 3, thesis register, problem-journey narrative (v1→v3.6). **Staining section removed** (we dropped stain-norm; only a one-line note that no stain-norm is used). **Math kept minimal per user**: only non-standard equations retained — fused feature, gated-MoE core (per-class sigmoid-bounded modulation + expert + additive `0.1·log gate`), LA-CE loss (ductal exempt τ=0, α=1.5/1.0). Sampler/selection/temp-scaling/TTA/metrics in prose. 4 tables, 17 figure-attach callouts.
+- **`RESULTS_CHAPTER.md`** — full Chapter 4: all tables + figure callouts + bolded findings. Results kept entirely separate from methodology per user.
+
+### 10.2 Statistics VERIFIED/COMPUTED this session (env: `venvs/torch-rocm/bin/python` — has numpy+sklearn+statsmodels)
+- **McNemar v3.6 vs ConvNeXt** (pooled patient-CV, sample order verified identical): 8-class p=**0.0005** (v3.6 acc 0.896 > 0.872, WINS); binary p=0.134 (TIED).
+- **McNemar v3.6 vs naive feature_ensemble**: 8-class p=**0.006** (0.896 > 0.875, WINS); binary p=0.137 (TIED).
+- Pre-existing p=8.6e-5 = v3.6 vs **binary-opt fusion** (Variant A), 8-class. So v3.6 significantly beats ConvNeXt + naive-ens + binary-opt on subtyping; tied with all on binary.
+- **Pooled per-class recall, all 4 models** (patient-CV): lobular ConvNeXt 0.953 → naive-ens **0.633** (COLLAPSE) → v3.6 **0.945** (RECOVERED); papillary 0.952 → 0.720 → 0.912. Pooled macro-F1: Swin 0.800, ConvNeXt 0.871, naive-ens 0.863, v3.6 **0.892**.
+
+### 10.3 Key honest framings locked in (corrected from overreaching pasted drafts)
+- **Collapse-trap mechanism = class imbalance, NOT "feature dilution/mutual cancellation."** Naive FeatureEnsembleMLP has no class weights + no balanced sampler → over-serves majority (ductal recall 0.82→0.935), collapses rare malignant. v3.6's sampler+LA-CE+GroupNorm recovers them.
+- **Gain is from the training regime, NOT fusion-per-se.** naive fusion (0.863) ≈ ConvNeXt (0.871) pooled macro-F1; v3.6's lift comes from gated head + imbalance handling. No ConvNeXt-features-through-v3.6-head ablation exists to isolate fusion → claim "the proposed v3.6 system outperforms…", never "fusion is why."
+- **ConvNeXt is marginally BETTER than v3.6 on lobular/papillary** (0.953 vs 0.945; 0.952 vs 0.912). v3.6's win is aggregate/balanced macro-F1 (significant), not per-class dominance. The gate "rescues" vs the naive ensemble, NOT vs ConvNeXt.
+- **MoE equations** must match real forward pass (experts read 512-D subtype trunk, additive log-gate bias) — NOT the pasted version feeding raw 2048-concat to experts with a sigmoid gate.
+
+### 10.4 Reporting convention DECIDED (applied in both chapters)
+- Headline aggregate metrics = **fold-mean ± std** (v3.6 8c-F1 = 0.8352 ± 0.0876). Pooled (0.892) → Appendix, reference only.
+- **Pooled** used ONLY for paired tests (McNemar), per-class tables, confusion (paired needs same samples). Both labeled explicitly everywhere; never mixed unlabeled.
+- Conceptual note: pooled and fold-mean are BOTH leakage-free (every pooled prediction is out-of-fold); they differ only in aggregation weight. Do NOT write "pooled isn't a generalization estimate" — that's false.
+- Results chapter scanned: convention labeling is clean throughout (no mixed-unlabeled sentences).
+
