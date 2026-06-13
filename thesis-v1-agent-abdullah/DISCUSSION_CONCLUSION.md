@@ -8,7 +8,7 @@ earlier literature and thereby exposes the true difficulty of rare-class discrim
 guiding hypothesis was that ConvNeXt-Base and Swin-Base extract *complementary* diagnostic
 evidence — local cellular morphology and global tissue architecture respectively — and that a
 learned fusion head operating on their frozen features can recover discriminative information
-that neither backbone reveals alone. Three contributions follow from the experiments of
+that neither backbone reveals alone. Four contributions follow from the experiments of
 Chapters 3 and 4.
 
 **A controlled fusion baseline.** A 562K-parameter multilayer perceptron trained on the
@@ -64,6 +64,30 @@ softened sampler) are each local and additive.
 > **[ATTACH Table 5.1 — `tables/gating_ablation.tex`]**, **[Table 5.2 —
 > `tables/loss_sampler_ablation.tex`]**, **[Table 5.3 — `tables/regularisation_ablation.tex`]**,
 > and the architecture-ablation table **`tables/architecture_ablation_full.tex`**.
+
+**A quantitative explainability benchmark for the fused model.** Beyond accuracy, a central
+contribution of this thesis is a systematic evaluation of *how* the model reaches its decisions
+and *whether* the local + global design hypothesis holds at the level of evidence, not just
+accuracy. Five attribution methods — Grad-CAM, Grad-CAM++, HiResCAM, LayerCAM, and Integrated
+Gradients — are compared across three backbones along three axes: **faithfulness** (deletion-AUC,
+lower is better), **complementarity** (heatmap Intersection-over-Union between the two backbones),
+and **runtime**. Two findings stand out. First, **Integrated Gradients is markedly more faithful
+than the CAM family on the fused model** (deletion-AUC 0.178 versus 0.462 for Grad-CAM++, a 61.5%
+reduction): because the gradient-based CAMs act on a single backbone's spatial activations, they
+cannot capture the cross-branch interaction that occurs inside the fusion head, whereas IG, as a
+path integral over the input, does. Second, the ConvNeXt and Swin attribution maps overlap very
+little (median IoU ≈ 0.051), which **quantitatively confirms the §3.4 hypothesis** that the
+convolutional and transformer backbones attend to genuinely different regions — local cellular
+detail versus global tissue architecture — and therefore that the explanations they offer are
+complementary rather than redundant. This turns explainability from a qualitative afterthought
+into a measured property of the system, and gives a clinician two reinforcing, non-overlapping
+views of the evidence behind each prediction.
+
+> **[ATTACH Table 5.4 — `tables/deletion_auc_stats.tex`]** (per-method × per-model deletion-AUC),
+> **[Figure — `figures/fig_4_3_xai_benchmark.png`]** (deletion-AUC bar chart),
+> **[Figure — `figures/fig_4_1_spatial_complementarity.png`]** (ConvNeXt vs Swin maps, low IoU),
+> **[Figure — `figures/xai_comparison_grid.png`]** (five methods × both backbones), and
+> **[Figure — `figures/ig_8class_grid.png`]** (per-subtype IG attributions).
 
 ## 5.2 Limitations
 
@@ -142,6 +166,17 @@ subtype signature that can be compared across datasets to diagnose whether a dom
 in texture (ConvNeXt channels) or in architecture (Swin channels), guiding targeted
 augmentation.
 
+**5.3.6 Explaining the gated model and gate-conditioned attributions.** A natural extension of
+the explainability work (§5.1) is to apply the full benchmark — deletion-AUC, IoU, and runtime
+across the five attribution methods — to the v3.6 gated head itself. This also
+opens a contribution unique to the gated design: **gate-weight-conditioned attributions**, in
+which the routing weights identify *which per-class expert* drives a prediction and the
+attribution is computed through that expert. The result would name both *where* the model looked
+(the heatmap) and *which subtype hypothesis* it pursued (the active expert) — transparency a
+single-head model cannot offer. Insertion-AUC and attribution-sanity checks (model- and
+label-randomisation) should be added alongside, to guard against attributions that look
+plausible but are not faithful.
+
 ---
 
 # Chapter 6 — Conclusion
@@ -199,6 +234,18 @@ additive: GroupNorm for stability, adequately sized experts for capacity, bounde
 for safety, and uniform-temperature logit adjustment for balance. This modularity suggests the
 recipe should transfer to other imbalanced histopathology problems such as Gleason grading or
 colorectal polyp classification.
+
+Equally central is the **explainability** contribution. A model intended to support diagnosis
+must be inspectable, and this thesis treats interpretability as a measured property rather than a
+qualitative gloss. The multi-method benchmark establishes Integrated Gradients as the faithful
+attribution method for the fused model (deletion-AUC 0.178, a 61.5% improvement over the CAM
+family) and shows, through a low cross-backbone heatmap overlap (median IoU ≈ 0.051), that the
+convolutional and transformer branches genuinely attend to different evidence — local cellular
+morphology and global tissue architecture. The fusion is therefore not only accurate but
+*accountable*: it offers the clinician two reinforcing, non-redundant views of why a prediction
+was made. Extending this benchmark to the gated head, with gate-conditioned attributions that
+also reveal which subtype expert drove each decision (§5.3.6), is the most direct way to deepen
+that accountability.
 
 Ultimately, the value of a model is measured by whether it changes outcomes. The binary-F1 of
 0.978 and AUC of 0.990 show that malignancy detection is essentially solved at the tile level.
