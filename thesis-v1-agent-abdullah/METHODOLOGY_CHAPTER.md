@@ -1,6 +1,41 @@
 # Chapter 3 — Methodology
 
-## 3.1 Overview and Design Rationale
+## 3.1 Problem Statement and Overview
+
+### 3.1.1 Problem statement
+
+Breast cancer is among the most common cancers worldwide, and its definitive diagnosis still
+rests on the microscopic examination of stained tissue by a pathologist. Beyond the first,
+coarse question — *is the tissue benign or malignant?* — clinical management depends on the
+finer question of *which histological subtype* is present, since subtypes differ in prognosis
+and treatment. This second task is difficult and time-consuming even for experts, which
+motivates computer-aided support.
+
+Framed as a machine-learning problem on the BreaKHis 400× dataset, subtype classification
+presents three coupled difficulties that any credible method must confront:
+
+1. **Severe class imbalance.** The eight subtypes are highly unequal in frequency — the
+   majority class (ductal carcinoma) is roughly 7.6× larger than the rarest (adenosis) — so a
+   model can attain high overall accuracy while failing the clinically important rare classes.
+2. **Patient-level data scarcity and leakage.** The images come from a small cohort, and
+   multiple images originate from the same patient. Evaluations that split by *image* rather
+   than by *patient* leak patient-specific cues into the test set and report optimistic numbers
+   that do not reflect performance on unseen patients.
+3. **Two decisions of unequal difficulty.** The binary benign/malignant decision and the
+   eight-class subtype decision are not equally hard. A single modern backbone already
+   near-solves the binary task, whereas subtype discrimination — especially among rare classes
+   — remains unsolved, so a method optimised for one task is not automatically right for the
+   other.
+
+**Objective.** This thesis investigates whether *fusing complementary features* from a
+convolutional backbone (ConvNeXt, sensitive to local cellular morphology) and a transformer
+backbone (Swin, sensitive to global tissue architecture), combined with explicit
+imbalance-aware training, can improve eight-class subtype discrimination **without** sacrificing
+the binary decision or relying on patient leakage, while keeping the resulting model
+interpretable. The remainder of this chapter develops the methodology designed to answer that
+question.
+
+### 3.1.2 Overview and design rationale
 
 This chapter describes the methodology developed for the automated classification of
 breast-cancer histopathology images at two clinically distinct levels of decision: the

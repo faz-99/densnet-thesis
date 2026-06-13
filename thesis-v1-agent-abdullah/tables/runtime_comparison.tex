@@ -2,9 +2,12 @@
 \begin{table}[t]
 \centering
 \small
-\caption{Runtime comparison. v3.6: 48\,ms CPU, 17\,MB. MiSLAS: 620\,ms, 352\,MB. 13$\times$ faster, 20$\times$ smaller.}
+\caption{Runtime and storage comparison. The v3.6 head (48\,ms CPU, 17\,MB) is $\sim$13$\times$
+faster and $\sim$20$\times$ smaller than a fully fine-tuned Swin-B backbone (612\,ms, 352\,MB).
+Latencies for v3.6 and the feature ensemble are for the classifier \emph{head only}; the shared
+frozen backbones extract features once per image regardless of head.}
 \label{tab:runtime_comparison}
-\begin{tabular}{lccccc}
+\begin{tabular}{lcccc}
 \toprule
 \textbf{Model} & \textbf{Params (M)} & \textbf{On-disk (MB)} & \textbf{CPU latency (ms)} & \textbf{GPU latency (ms)} \\
 \midrule
