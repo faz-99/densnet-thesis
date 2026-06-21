@@ -29,7 +29,17 @@
       "Bash(grep -viE \"\\\\.png$\")",
       "Bash(/home/abdullah/venvs/torch-rocm/bin/python -c ' *)",
       "Bash(/home/abdullah/venvs/torch-rocm/bin/python -)",
-      "Bash(grep -E \"\\\\.\\(txt|json|py\\)$\")"
+      "Bash(grep -E \"\\\\.\\(txt|json|py\\)$\")",
+      "Bash(.venv/bin/python -c \"import docx; print\\('python-docx version:', docx.__version__\\)\")",
+      "Bash(.venv/bin/python -c ' *)",
+      "Bash(sed -i '/o:OLEObject/d' /tmp/dump_ref.py)",
+      "Bash(sed -i '/^ for od in/d' /tmp/dump_ref.py)",
+      "Bash(sed -i '/# objects\\\\/emf/d' /tmp/dump_ref.py)",
+      "Bash(sed -i '/^ pass$/d' /tmp/dump_ref.py)",
+      "Bash(.venv/bin/python /tmp/dump_ref.py)",
+      "Bash(\"thesis writing/.venv/bin/python\" /tmp/match_figs.py)",
+      "Bash(sed -i \"s#figdir='thesis-v1-agent-abdullah/figures'#figdir='/home/abdullah/Documents/GitHub/Personal/densnet-thesis/thesis-v1-agent-abdullah/figures'#\" /tmp/match_figs.py)",
+      "Bash(sed -i \"s#refpath='thesis-v1-agent-abdullah/thesis writing/403174 \\(2\\) \\(4\\).docx'#refpath='/home/abdullah/Documents/GitHub/Personal/densnet-thesis/thesis-v1-agent-abdullah/thesis writing/403174 \\(2\\) \\(4\\).docx'#\" /tmp/match_figs.py)"
     ]
   }
 }
