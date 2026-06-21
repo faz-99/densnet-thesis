@@ -39,7 +39,15 @@
       "Bash(.venv/bin/python /tmp/dump_ref.py)",
       "Bash(\"thesis writing/.venv/bin/python\" /tmp/match_figs.py)",
       "Bash(sed -i \"s#figdir='thesis-v1-agent-abdullah/figures'#figdir='/home/abdullah/Documents/GitHub/Personal/densnet-thesis/thesis-v1-agent-abdullah/figures'#\" /tmp/match_figs.py)",
-      "Bash(sed -i \"s#refpath='thesis-v1-agent-abdullah/thesis writing/403174 \\(2\\) \\(4\\).docx'#refpath='/home/abdullah/Documents/GitHub/Personal/densnet-thesis/thesis-v1-agent-abdullah/thesis writing/403174 \\(2\\) \\(4\\).docx'#\" /tmp/match_figs.py)"
+      "Bash(sed -i \"s#refpath='thesis-v1-agent-abdullah/thesis writing/403174 \\(2\\) \\(4\\).docx'#refpath='/home/abdullah/Documents/GitHub/Personal/densnet-thesis/thesis-v1-agent-abdullah/thesis writing/403174 \\(2\\) \\(4\\).docx'#\" /tmp/match_figs.py)",
+      "Bash(timeout 180 soffice --headless --convert-to pdf --outdir /tmp -env:UserInstallation=file:///tmp/lo_profile \"2112-1.NEW.docx\")",
+      "Bash(echo \"exit: $?\")",
+      "Bash('/home/abdullah/Documents/GitHub/Personal/densnet-thesis/thesis-v1-agent-abdullah/thesis writing/.venv/bin/python' -c ' *)",
+      "Bash(pdftoppm -png -r 80 -f 52 -l 54 2112-1.NEW.pdf pg)",
+      "Bash(pdftoppm -png -r 70 -f 84 -l 84 2112-1.NEW.pdf xai)",
+      "Bash(pdftoppm -png -r 80 -f 51 -l 51 2112-1.NEW.pdf pg)",
+      "Bash(mv \"2112-1.NEW.docx\" \"2112-1.docx\")",
+      "Bash(.venv/bin/python -c *)"
     ]
   }
 }
